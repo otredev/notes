@@ -1,0 +1,252 @@
+/*
+ * RetroDark — tema oscuro "Carbón y esmeralda"
+ *
+ * Capa visual sobre los estilos base: fondo negro carbón, acentos esmeralda apagados
+ * y superficies de cristal esmerilado (desenfoque suave, bordes finos translúcidos,
+ * sombras discretas). Solo se aplica en modo oscuro (html[data-mode="dark"]);
+ * el tema claro queda como estaba.
+ */
+
+/* ---------- Colores ---------- */
+:root[data-mode="dark"] {
+  /* Base */
+  --bg-solid: #0b0c0e;
+  --text: #e6e9e7;
+  --muted: #8a918e;
+  --line: rgba(255, 255, 255, .055);
+
+  /* Esmeralda apagado */
+  --green: #3e9d7c;
+  --green-strong: #6dbb9c;
+  --on-green: #07120e;
+  --emerald-tint: rgba(62, 157, 124, .16);
+  --emerald-line: rgba(109, 187, 156, .28);
+
+  /* Superficies de cristal */
+  --panel: rgba(17, 19, 22, .66);
+  --panel-2: rgba(23, 26, 30, .58);
+  --sheet: rgba(21, 23, 27, .78);
+  --hover: rgba(255, 255, 255, .035);
+  --active: rgba(255, 255, 255, .06);
+  --input: rgba(255, 255, 255, .045);
+  --soft: rgba(255, 255, 255, .055);
+  --glass-border: rgba(255, 255, 255, .075);
+  --glass-blur: blur(20px) saturate(135%);
+  --glass-shadow: 0 10px 34px rgba(0, 0, 0, .38);
+
+  /* Chat */
+  --bg-chat: transparent;
+  --doodle: rgba(255, 255, 255, .022);
+  --out: rgba(62, 157, 124, .17);
+  --in: rgba(255, 255, 255, .042);
+  --bubble-shadow: 0 1px 2px rgba(0, 0, 0, .22);
+  --sep: rgba(22, 25, 28, .62);
+  --sep-text: #9ba39f;
+
+  /* Detalles */
+  --tick: #7cc4a7;
+  --link: #8cc2ad;
+  --danger: #e07a70;
+  --warn: #d4b062;
+  --chip: rgba(255, 255, 255, .045);
+  --chip-on: rgba(62, 157, 124, .18);
+  --chip-on-text: #8fd0b4;
+  --seg-on: rgba(255, 255, 255, .085);
+  color-scheme: dark;
+}
+
+/* ---------- Fondo ---------- */
+[data-mode="dark"] body,
+[data-mode="dark"] #main {
+  background:
+    radial-gradient(1100px 650px at 88% -12%, rgba(62, 157, 124, .085), transparent 62%),
+    radial-gradient(900px 600px at -8% 112%, rgba(110, 125, 140, .06), transparent 60%),
+    var(--bg-solid);
+  background-attachment: fixed;
+}
+[data-mode="dark"] #app { border-color: var(--line); }
+[data-mode="dark"] * { scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, .12) transparent; }
+[data-mode="dark"] ::selection { background: rgba(62, 157, 124, .35); }
+
+/* ---------- Superficies de cristal ---------- */
+[data-mode="dark"] #rail,
+[data-mode="dark"] #pane,
+[data-mode="dark"] #bottomnav,
+[data-mode="dark"] .chat-head,
+[data-mode="dark"] .chat-search,
+[data-mode="dark"] .filters,
+[data-mode="dark"] .composer-area,
+[data-mode="dark"] .pinned-bar {
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+[data-mode="dark"] #rail { background: var(--panel); border-right: 1px solid var(--glass-border); }
+[data-mode="dark"] #pane { background: var(--panel); border-right: 1px solid var(--glass-border); }
+[data-mode="dark"] #bottomnav { background: var(--panel); border-top: 1px solid var(--glass-border); }
+[data-mode="dark"] .chat-head { background: var(--panel-2); border-bottom: 1px solid var(--glass-border); }
+[data-mode="dark"] .chat-search,
+[data-mode="dark"] .filters { background: var(--panel-2); border-bottom: 1px solid var(--glass-border); }
+[data-mode="dark"] .composer-area { background: var(--panel-2); border-top: 1px solid var(--glass-border); }
+[data-mode="dark"] .composer,
+[data-mode="dark"] .reply-bar { background: transparent; }
+[data-mode="dark"] .pinned-bar { background: var(--panel); border-bottom: 1px solid var(--glass-border); }
+
+/* ---------- Navegación ---------- */
+[data-mode="dark"] .nav-btn { transition: background .15s, color .15s; }
+[data-mode="dark"] .nav-btn.on { background: var(--chip-on); color: var(--chip-on-text); box-shadow: inset 0 0 0 1px var(--emerald-line); }
+[data-mode="dark"] #bottomnav .nav-btn.on { background: none; box-shadow: none; }
+[data-mode="dark"] #bottomnav .nav-btn.on .ic { box-shadow: inset 0 0 0 1px var(--emerald-line); }
+[data-mode="dark"] .badge { background: var(--green); color: var(--on-green); }
+
+/* ---------- Panel lateral ---------- */
+[data-mode="dark"] .pane-head h1 { font-weight: 600; letter-spacing: -.01em; }
+[data-mode="dark"] .pane-head h1 em { color: var(--green-strong); }
+[data-mode="dark"] .searchbar { background: var(--input); border: 1px solid var(--glass-border); border-radius: 10px; }
+[data-mode="dark"] .searchbar:focus-within { border-color: var(--emerald-line); }
+[data-mode="dark"] .chip { border: 1px solid var(--glass-border); transition: background .15s, border-color .15s, color .15s; }
+[data-mode="dark"] .chip:hover { background: var(--active); }
+[data-mode="dark"] .chip.on { border-color: var(--emerald-line); }
+[data-mode="dark"] .chip.ghost { border: 1px dashed rgba(255, 255, 255, .12); }
+[data-mode="dark"] .filters .chip { background: var(--chip); }
+[data-mode="dark"] .filters .chip.on { background: var(--chip-on); }
+[data-mode="dark"] .chat-row { transition: background .15s; }
+[data-mode="dark"] .chat-row.on { background: var(--active); box-shadow: inset 2px 0 0 var(--green); }
+[data-mode="dark"] .cr-body { border-bottom-color: var(--line); }
+[data-mode="dark"] .avatar {
+  background: color-mix(in srgb, var(--c) 16%, rgba(255, 255, 255, .03));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c) 38%, transparent);
+}
+[data-mode="dark"] .sec-title { color: var(--green-strong); letter-spacing: .06em; font-size: 12px; }
+[data-mode="dark"] .sec-title.danger { color: var(--danger); }
+[data-mode="dark"] .task-row,
+[data-mode="dark"] .org-row,
+[data-mode="dark"] .res-row { border-bottom-color: var(--line); }
+[data-mode="dark"] .fab {
+  background: var(--green); color: var(--on-green); border-radius: 18px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .45), inset 0 1px 0 rgba(255, 255, 255, .18);
+}
+
+/* ---------- Chat ---------- */
+[data-mode="dark"] .messages { background-color: transparent; }
+[data-mode="dark"] .chat-progress { background: var(--line); }
+[data-mode="dark"] .chat-progress i { background: var(--green); }
+[data-mode="dark"] .day-sep span,
+[data-mode="dark"] .sys-note {
+  background: var(--sep); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .25);
+}
+[data-mode="dark"] .day-sep span { border-radius: 999px; padding: 4px 12px; font-size: 12px; letter-spacing: .01em; }
+[data-mode="dark"] .sys-note { border-radius: 12px; }
+
+/* Burbujas: cristal tintado, borde fino y sin "colita" */
+[data-mode="dark"] .bubble {
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  box-shadow: var(--bubble-shadow);
+}
+[data-mode="dark"] .msg .bubble::after { display: none; }
+[data-mode="dark"] .msg.out .bubble { border-color: var(--emerald-line); border-top-right-radius: 4px; }
+[data-mode="dark"] .msg.in .bubble { border-top-left-radius: 4px; }
+[data-mode="dark"] .bubble.has-cat { box-shadow: inset 3px 0 0 var(--cat), var(--bubble-shadow); }
+[data-mode="dark"] .msg.sel { background: rgba(62, 157, 124, .1); }
+[data-mode="dark"] .b-kind { color: var(--green-strong); }
+[data-mode="dark"] .b-meta { color: rgba(230, 233, 231, .45); }
+[data-mode="dark"] .check { border-color: rgba(255, 255, 255, .28); }
+[data-mode="dark"] .check.on { background: var(--green); border-color: var(--green); color: var(--on-green); }
+[data-mode="dark"] .cat-chip { background: color-mix(in srgb, var(--c) 14%, transparent); border: 1px solid color-mix(in srgb, var(--c) 26%, transparent); }
+[data-mode="dark"] .due-chip { border: 1px solid var(--glass-border); }
+[data-mode="dark"] .quote { background: rgba(255, 255, 255, .04); box-shadow: inset 3px 0 0 var(--qc); border-radius: 8px; }
+[data-mode="dark"] .reply-bar .quote { background: var(--input); border: 1px solid var(--glass-border); }
+[data-mode="dark"] .b-reply {
+  background: var(--sep); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+}
+[data-mode="dark"] .msg.flash .bubble { animation: flash-soft 1.6s ease; }
+@keyframes flash-soft {
+  0%, 50% { box-shadow: 0 0 0 2px var(--emerald-line), var(--bubble-shadow); }
+  100% { box-shadow: var(--bubble-shadow); }
+}
+
+/* Cuadro de texto */
+[data-mode="dark"] .composer-box {
+  background: var(--input); border: 1px solid var(--glass-border); border-radius: 22px;
+  transition: border-color .15s;
+}
+[data-mode="dark"] .composer-box:focus-within { border-color: var(--emerald-line); }
+[data-mode="dark"] .kind-btn.forced { background: var(--chip-on); box-shadow: inset 0 0 0 1px var(--emerald-line); }
+[data-mode="dark"] .send-btn {
+  background: var(--green); color: var(--on-green);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, .35), inset 0 1px 0 rgba(255, 255, 255, .16);
+  transition: transform .12s, background .15s;
+}
+[data-mode="dark"] .send-btn:hover { background: #46a885; }
+[data-mode="dark"] .send-btn:active { transform: scale(.96); }
+
+/* Pantalla vacía (escritorio, sin chat abierto) */
+[data-mode="dark"] .main-empty { background: transparent; border-bottom: 0; }
+[data-mode="dark"] .me-logo {
+  background: var(--panel-2); color: var(--green-strong); border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow);
+}
+[data-mode="dark"] .main-empty h2 { font-weight: 300; letter-spacing: -.01em; }
+
+/* ---------- Hojas, formularios y botones ---------- */
+[data-mode="dark"] .sheet-backdrop { background: rgba(4, 5, 6, .55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+[data-mode="dark"] .sheet {
+  background: var(--sheet); border: 1px solid var(--glass-border); border-radius: 18px;
+  -webkit-backdrop-filter: blur(28px) saturate(140%); backdrop-filter: blur(28px) saturate(140%);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .04);
+}
+[data-mode="dark"] .sheet-actions { border-top-color: var(--line); }
+[data-mode="dark"] .field input:not([type=checkbox]),
+[data-mode="dark"] .field textarea,
+[data-mode="dark"] .field select,
+[data-mode="dark"] .chat-search input {
+  background: var(--input); border: 1px solid var(--glass-border); border-radius: 10px;
+  transition: border-color .15s, box-shadow .15s;
+}
+[data-mode="dark"] .field input:focus,
+[data-mode="dark"] .field textarea:focus,
+[data-mode="dark"] .field select:focus,
+[data-mode="dark"] .chat-search input:focus { border-color: var(--emerald-line); box-shadow: 0 0 0 3px rgba(62, 157, 124, .1); }
+[data-mode="dark"] .field select option { background: #15171a; }
+[data-mode="dark"] .seg { background: var(--input); border: 1px solid var(--glass-border); border-radius: 12px; }
+[data-mode="dark"] .seg button.on { background: var(--seg-on); box-shadow: inset 0 0 0 1px var(--glass-border); }
+[data-mode="dark"] .btn { transition: background .15s, border-color .15s; }
+[data-mode="dark"] .btn.primary { background: var(--green); color: var(--on-green); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .16); }
+[data-mode="dark"] .btn.primary:hover { background: #46a885; }
+[data-mode="dark"] .btn.ghost { color: var(--green-strong); }
+[data-mode="dark"] .btn.outline { border-color: var(--glass-border); color: var(--green-strong); background: var(--input); }
+[data-mode="dark"] .btn.danger:not(.ghost) { background: #b8574e; color: #fff; }
+[data-mode="dark"] .btn.danger.ghost { color: var(--danger); }
+[data-mode="dark"] .stats div,
+[data-mode="dark"] .triage-msg { background: var(--input); border: 1px solid var(--glass-border); }
+[data-mode="dark"] .emoji-grid button.on { box-shadow: inset 0 0 0 1px var(--emerald-line); }
+[data-mode="dark"] .pick,
+[data-mode="dark"] .check-list label,
+[data-mode="dark"] .help td { border-bottom-color: var(--line); }
+[data-mode="dark"] .toggle input,
+[data-mode="dark"] .check-list input { accent-color: var(--green); }
+
+/* Aviso inferior */
+[data-mode="dark"] #toast {
+  background: rgba(24, 27, 31, .82); color: var(--text); border: 1px solid var(--glass-border); border-radius: 12px;
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); box-shadow: var(--glass-shadow);
+}
+[data-mode="dark"] #toast button { color: var(--green-strong); }
+
+/* ---------- Navegadores sin desenfoque: superficies más opacas ---------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-mode="dark"] {
+    --panel: rgba(17, 19, 22, .96);
+    --panel-2: rgba(23, 26, 30, .96);
+    --sheet: rgba(21, 23, 27, .98);
+    --sep: rgba(22, 25, 28, .95);
+  }
+}
+
+/* ---------- Menos movimiento si el sistema lo pide ---------- */
+@media (prefers-reduced-motion: reduce) {
+  [data-mode="dark"] * { transition: none !important; }
+}

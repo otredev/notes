@@ -1,0 +1,70 @@
+/* RetroDark — colores, base y utilidades (inspirado en WhatsApp) */
+:root {
+  --green: #00a884; --green-strong: #008069; --on-green: #fff;
+  --bg-chat: #efeae2; --doodle: rgba(84, 101, 111, .08);
+  --panel: #ffffff; --panel-2: #f0f2f5; --hover: #f5f6f6; --active: #f0f2f5;
+  --text: #111b21; --muted: #667781; --line: #e9edef;
+  --out: #d9fdd3; --in: #ffffff; --bubble-shadow: 0 1px .5px rgba(11, 20, 26, .13);
+  --tick: #53bdeb; --link: #027eb5; --danger: #ea4335; --warn: #d97706;
+  --sheet: #ffffff; --input: #ffffff; --chip: #f0f2f5; --chip-on: #d9fdd3; --chip-on-text: #008069;
+  --sep: #ffffff; --sep-text: #54656f; --soft: rgba(0, 0, 0, .06); --seg-on: #ffffff;
+  color-scheme: light;
+}
+:root[data-theme="dark"] {
+  --green: #00a884; --green-strong: #00a884; --on-green: #111b21;
+  --bg-chat: #0b141a; --doodle: rgba(255, 255, 255, .035);
+  --panel: #111b21; --panel-2: #202c33; --hover: #202c33; --active: #2a3942;
+  --text: #e9edef; --muted: #8696a0; --line: #222d34;
+  --out: #005c4b; --in: #202c33; --bubble-shadow: 0 1px .5px rgba(0, 0, 0, .3);
+  --tick: #53bdeb; --link: #53bdeb; --danger: #f15c6d; --warn: #f5b70a;
+  --sheet: #1f2c34; --input: #2a3942; --chip: #202c33; --chip-on: #0a332c; --chip-on-text: #00a884;
+  --sep: #182229; --sep-text: #8696a0; --soft: rgba(255, 255, 255, .08); --seg-on: #2a3942;
+  color-scheme: dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --green: #00a884; --green-strong: #00a884; --on-green: #111b21;
+    --bg-chat: #0b141a; --doodle: rgba(255, 255, 255, .035);
+    --panel: #111b21; --panel-2: #202c33; --hover: #202c33; --active: #2a3942;
+    --text: #e9edef; --muted: #8696a0; --line: #222d34;
+    --out: #005c4b; --in: #202c33; --bubble-shadow: 0 1px .5px rgba(0, 0, 0, .3);
+    --tick: #53bdeb; --link: #53bdeb; --danger: #f15c6d; --warn: #f5b70a;
+    --sheet: #1f2c34; --input: #2a3942; --chip: #202c33; --chip-on: #0a332c; --chip-on-text: #00a884;
+    --sep: #182229; --sep-text: #8696a0; --soft: rgba(255, 255, 255, .08); --seg-on: #2a3942;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  font: 15px/1.4 "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  background: var(--panel-2); color: var(--text);
+  -webkit-tap-highlight-color: transparent; overscroll-behavior: none; overflow: hidden;
+}
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+input, textarea, select { font: inherit; color: inherit; }
+[hidden] { display: none !important; }
+.ic { width: 24px; height: 24px; fill: currentColor; flex: none; }
+.ic.tiny { width: 15px; height: 15px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.grow { flex: 1; }
+:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+
+
+#toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 150%); opacity: 0;
+  background: #323739; color: #fff; padding: 10px 16px; border-radius: 8px; display: flex; gap: 16px; align-items: center;
+  z-index: 60; transition: .25s; box-shadow: 0 6px 20px rgba(0, 0, 0, .3); max-width: calc(100% - 32px); font-size: 14px; pointer-events: none;
+}
+#toast.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+#toast button { color: #00d39d; font-weight: 700; text-transform: uppercase; font-size: 13px; }
+
+@keyframes fade { from { opacity: 0; } }
+@keyframes pop { from { opacity: 0; transform: translate(-50%, -46%); } }
+@keyframes up { from { transform: translateY(100%); } }
+
+@media (pointer: coarse) {
+  .msg { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}

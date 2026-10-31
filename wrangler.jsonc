@@ -1,0 +1,64 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "retrodark",
+	"main": "worker/index.js",
+	"compatibility_date": "2026-10-01",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// La PWA (public/) la sirve Cloudflare. Lo que no es un archivo (/api/*) llega al Worker.
+	"assets": {
+		"directory": "./public",
+		"binding": "ASSETS"
+	},
+	// Un Durable Object guarda abierta la conexión con MongoDB Atlas.
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "DB",
+				"class_name": "Database"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"Database"
+			]
+		}
+	],
+	// Archivos adjuntos (fotos, audios, documentos) en Cloudflare R2.
+	// Crea el bucket una vez con:  npx wrangler r2 bucket create retrodark-files
+	"r2_buckets": [
+		{
+			"binding": "FILES",
+			"bucket_name": "retrodark-files"
+		},
+		{
+			"bucket_name": "retrodark-files",
+			"binding": "retrodark_files",
+			"remote": true
+		}
+	],
+	"vars": {
+		"MONGODB_DB": "retrodark",
+		// Región donde se crea el Durable Object; ponla cerca de tu clúster de Atlas.
+		// wnam = oeste de Norteamérica, enam = este, weur = Europa occidental, sam = Sudamérica…
+		"DB_LOCATION": "enam",
+		// Contacto que se envía a los servicios de push (mailto: o https:)
+		"VAPID_SUBJECT": "https://retrodark.softwarefactory-group.workers.dev",
+		// Tu zona horaria (para el MCP: "mañana a las 9" se entiende en esta hora)
+		"TIMEZONE": "America/New_York"
+	},
+	// Cada minuto se revisan los recordatorios y se envían las notificaciones push.
+	"triggers": {
+		"crons": [
+			"* * * * *"
+		]
+	},
+	// Secretos (no van aquí): MONGODB_URI, APP_TOKEN, VAPID_PUBLIC_KEY y VAPID_PRIVATE_KEY → npx wrangler secret put <NOMBRE>
+	"observability": {
+		"enabled": true
+	}
+}

@@ -1,0 +1,9 @@
+# Copia este archivo como .dev.vars para probar el Worker en local (npm run cf:dev).
+# En Cloudflare se configuran con: npx wrangler secret put MONGODB_URI / APP_TOKEN
+
+MONGODB_URI=mongodb+srv://usuario:contraseña@cluster0.xxxxx.mongodb.net/?retryWrites=true&w=majority
+APP_TOKEN=
+
+# Notificaciones push: npm run vapid
+VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=

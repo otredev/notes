@@ -1,0 +1,25 @@
+{
+  "name": "retrodark",
+  "version": "0.4.0",
+  "private": true,
+  "description": "PWA de notas y tareas con forma de chat, guardada en MongoDB y desplegada en Cloudflare Workers",
+  "type": "module",
+  "scripts": {
+    "cf:dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "cf:logs": "wrangler tail",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node --watch --env-file-if-exists=.env server/index.js",
+    "vapid": "node scripts/vapid-keys.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "mongodb": "^6.17.0"
+  },
+  "devDependencies": {
+    "express": "^5.1.0",
+    "wrangler": "^4.156.0"
+  }
+}
