@@ -61,6 +61,8 @@ async function settingsFor(repo, u, ctx) {
     features: { push: vapidReady(ctx.vapid), backups: !!ctx.backups && u === OWNER, multiUser: !!ctx.token, ...ctx.features },
     storage: ctx.storageLimits ? storageState(await repo.getStorage(), ctx.storageLimits) : { available: false },
   };
+  // Los detalles del espacio solo los ve el propietario; los demás, solo si se puede subir o no.
+  if (u !== OWNER && out.storage.available) out.storage = { available: true, state: out.storage.state === 'full' ? 'full' : 'ok' };
   if (u === OWNER) Object.assign(out, { backups: global.backups, email: global.email });
   return out;
 }
@@ -90,7 +92,7 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
     const code = String(body?.code || '').trim();
     const newSession = async (uid) => {
       const sid = randomId(16);
-      await repo.createSession(uid, sid, userAgent);
+      await repo.createSession(uid, sid, userAgent, String(body?.deviceId || ''));
       return { token: await signToken(token, uid, sid), me: await repo.getUser(uid) };
     };
 
@@ -227,6 +229,9 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
       const ok = await repo.revokeSession(u, String(body?.id || ''));
       return ok ? json(200, { ok: true }) : json(404, { error: 'No existe esa sesión' });
     }
+    case 'POST /sessions/revoke-others':
+      await repo.revokeAllSessions(u, who.sid);
+      return json(200, { ok: true });
     case 'POST /auth/logout':
       if (who.sid) await repo.revokeSession(u, who.sid);
       return json(200, { ok: true });
@@ -321,6 +326,7 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
     case 'GET /feed':
       return json(200, { key: await feedKey(token, u) });
     case 'GET /storage':
+      if (!isOwner) return ownerOnly();
       return json(200, ctx.storageLimits ? storageState(await repo.getStorage(), ctx.storageLimits) : { available: false });
     default:
       return json(404, { error: 'not found' });

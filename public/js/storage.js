@@ -40,6 +40,14 @@ export function storageModal({ force = false } = {}) {
   if (!force && Date.now() - shownAt < 10 * 60e3) return;
   shownAt = Date.now();
   const st = storageInfo();
+  // Quien no es el propietario: solo el aviso, sin cifras ni ajustes.
+  if ((S.me?.role || 'owner') !== 'owner') {
+    sheet('⛔ No se pueden subir archivos ahora', `<p>El espacio en la nube está casi lleno, así que por ahora no se suben fotos, audios ni documentos. Lo que adjuntes se queda en este dispositivo y se subirá cuando haya espacio.</p>
+      <p class="muted small">Los mensajes de texto siguen funcionando. Avisa al administrador de ChatNote.</p>`, {
+      actions: '<span class="grow"></span><button class="btn primary" data-act="sheet-close">Entendido</button>',
+    });
+    return;
+  }
   sheet('⛔ Espacio en la nube casi lleno', `
     <p>Para que Cloudflare no te cobre, ChatNote <b>no sube archivos nuevos</b> (fotos, audios, documentos) ni crea copias de seguridad hasta que haya espacio.</p>
     <div class="set-group">${storageBarsHtml(st)}</div>
@@ -69,7 +77,7 @@ export function canUpload() {
 /** Al abrir la app: lleno → ventana; cerca del límite → aviso una vez al día. */
 export function checkStorageOnStart() {
   const st = storageInfo();
-  if (!st?.available) return;
+  if (!st?.available || (S.me?.role || 'owner') !== 'owner') return;
   if (st.state === 'full') storageModal();
   else if (st.state === 'warn') {
     const key = 'retrodark-storage-warn', today = new Date().toDateString();

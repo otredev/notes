@@ -70,6 +70,9 @@ function leave() {
   }, 150);
 }
 
+/** La propia app va a recargar (entrar, cerrar sesión): sin preguntar "¿Salir?". */
+export function allowLeave() { leaving = true; }
+
 export function initBackNav() {
   // Chrome ignora entradas del historial añadidas sin interacción, así que la guarda
   // se pone (o se repone) al tocar o teclear.

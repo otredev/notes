@@ -95,8 +95,8 @@ export function settingsPaneHtml() {
     <div class="set-group" id="sync-box">${syncBoxHtml()}</div>
     ${isOwnerUser() ? `<div class="sec-title">Asistente de IA (MCP)</div>
     <div class="set-group" id="mcp-box">${mcpBoxHtml()}</div>` : ''}
-    <div class="sec-title" id="storage-title">Almacenamiento en la nube</div>
-    <div class="set-group" id="storage-box">${storageBarsHtml()}</div>
+    ${isOwnerUser() ? `<div class="sec-title" id="storage-title">Almacenamiento en la nube</div>
+    <div class="set-group" id="storage-box">${storageBarsHtml()}</div>` : ''}
     <div class="sec-title">Tus datos</div>
     <div class="set-group">
       <p class="muted small" style="margin:0">${S.messages.length} mensajes en ${S.chats.length} chats${S.trash.length ? ` · ${S.trash.length} en la papelera` : ''}.</p>

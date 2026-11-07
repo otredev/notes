@@ -6,7 +6,7 @@ import { $, esc } from '../utils.js';
 import { ic } from '../icons.js';
 import { S, settings } from '../state.js';
 import { toast } from '../ui/dom.js';
-import { switchAccount } from './account.js';
+import { switchAccount, deviceId } from './account.js';
 
 let shown = false;
 
@@ -81,7 +81,7 @@ export function showAuth({ mode = 'login', code = '', reason = '' } = {}) {
     const f = e.currentTarget;
     busy(f, true);
     try {
-      const r = await post('auth/login', { handle: $('#au-user', el).value.trim(), password: $('#au-pass', el).value });
+      const r = await post('auth/login', { handle: $('#au-user', el).value.trim(), password: $('#au-pass', el).value, deviceId: deviceId() });
       // El propietario que usaba este dispositivo sin cuenta conserva lo que tenía guardado aquí.
       await done(r, r.me?.id === 'owner' && !settings.token && !!S.hadLocalData);
     } catch (err) { toast(err.message); busy(f, false); $('#au-pass', el).select(); }
@@ -92,7 +92,7 @@ export function showAuth({ mode = 'login', code = '', reason = '' } = {}) {
     if ($('#au-p1', el).value !== $('#au-p2', el).value) { toast('Las contraseñas no coinciden'); return; }
     busy(f, true);
     try {
-      const r = await post('auth/register', { code: $('#au-code', el).value.trim(), name: $('#au-name', el).value, handle: $('#au-handle', el).value.trim(), password: $('#au-p1', el).value });
+      const r = await post('auth/register', { code: $('#au-code', el).value.trim(), name: $('#au-name', el).value, handle: $('#au-handle', el).value.trim(), password: $('#au-p1', el).value, deviceId: deviceId() });
       await done(r);
     } catch (err) { toast(err.message); busy(f, false); }
   });
@@ -114,5 +114,7 @@ function switchTab(mode) {
   el.querySelectorAll('[data-au]').forEach((b) => b.classList.toggle('on', b.dataset.au === mode));
   $('#au-login', el).hidden = mode !== 'login';
   $('#au-register', el).hidden = mode !== 'register';
+  // La clave del servidor (solo para el propietario) no tiene sentido al crear una cuenta.
+  $('.au-master', el).hidden = mode !== 'login';
   setTimeout(() => (mode === 'login' ? $('#au-user', el) : $('#au-code', el).value ? $('#au-name', el) : $('#au-code', el)).focus(), 50);
 }

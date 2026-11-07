@@ -17,7 +17,7 @@ import { requireUnlock, lockNow, pinSetupSheet, enableBiometric, disableBiometri
 import { loadServer, loadBackups } from './views/server.js';
 import { localTz } from './recurrence.js';
 import { isShared, membersOf, myId } from './people.js';
-import { personDot, saveProfile, createDeviceLink, revokeSession, logout, inviteLink, loginLinkFor, setDisabled, changePassword, newUserSheet, resetPasswordSheet, loadAccount } from './views/account.js';
+import { personDot, saveProfile, createDeviceLink, revokeSession, logout, inviteLink, loginLinkFor, setDisabled, changePassword, newUserSheet, resetPasswordSheet, loadAccount, revokeOtherSessions } from './views/account.js';
 import { restartLive } from './live.js';
 import { norm } from './utils.js';
 
@@ -245,6 +245,7 @@ const ACTIONS = {
   'acc-link': () => createDeviceLink().then((ok) => { if (ok) { toast('Enlace copiado: ábrelo en el otro dispositivo (30 min)'); renderPane(); } }),
   'copy-input': (el) => copyText($(`#${el.dataset.v}`)?.value || ''),
   'sess-revoke': (el) => revokeSession(el.dataset.v).then(() => renderPane()),
+  'sess-others': () => confirmSheet('Se cerrará la sesión en todos tus otros dispositivos. Tendrán que volver a entrar.', 'Cerrar', () => revokeOtherSessions().then(() => renderPane())),
   logout: () => logout(),
   'ppl-invite': () => inviteLink().then((url) => { if (url) { toast('Código de invitación copiado (7 días, un solo uso)'); renderPane(); } }),
   'ppl-new': () => newUserSheet(() => loadAccount().then(() => renderPane())),

@@ -8,6 +8,7 @@ import { S, settings, saveSettings } from '../state.js';
 import { api, resetLocal, syncNow, storeToken, forgetAccount, setMe } from '../data/sync.js';
 import { sheet, closeSheet, toast, confirmSheet, copyText } from '../ui/dom.js';
 import { myId } from '../people.js';
+import { allowLeave } from '../backnav.js';
 
 const COLORS = ['#3e9d7c', '#53bdeb', '#ff7a59', '#a78bfa', '#f5b70a', '#ec4899', '#10b981', '#64748b'];
 const back = (title) => `<header class="pane-head"><button class="icon-btn" data-act="sub" data-v="" aria-label="Volver a Ajustes">${ic('back')}</button><h1>${title}</h1></header>`;
@@ -17,6 +18,19 @@ export const multiUser = () => !!S.server?.features?.multiUser;
 export const linkUrl = (kind, code) => `${location.origin}${location.pathname}?${kind}=${encodeURIComponent(code)}`;
 
 let sessions = null, users = null, lastLink = null;
+
+/**
+ * Identificador de este navegador (no cambia al cerrar sesión). Con él, volver a entrar desde el mismo
+ * dispositivo reemplaza su sesión anterior en vez de sumar otra a la lista.
+ */
+export function deviceId() {
+  const KEY = 'retrodark-device';
+  try {
+    let id = localStorage.getItem(KEY);
+    if (!/^[a-z0-9]{8,40}$/.test(id || '')) { id = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => (b % 36).toString(36)).join(''); localStorage.setItem(KEY, id); }
+    return id;
+  } catch { return ''; }
+}
 
 /* ---------- Cuenta ---------- */
 let viaAppToken = false;
@@ -49,14 +63,16 @@ export function accountPaneHtml() {
     <div class="sec-title">Tus dispositivos</div>
     <div class="set-group">
       ${viaAppToken
-        ? `<p class="muted small" style="margin:0">Este dispositivo entra con la clave del servidor (APP_TOKEN). En los demás puedes entrar con tu usuario y contraseña.</p>`
+        ? `<p class="muted small" style="margin:0 0 8px">Este dispositivo entra con la clave del servidor (APP_TOKEN). En los demás puedes entrar con tu usuario y contraseña.${S.me?.hasPassword ? '' : ' <b>Crea tu contraseña antes de cerrar sesión</b>, o necesitarás la clave para volver a entrar.'}</p>`
         : `<p class="muted small" style="margin:0 0 8px">Puedes entrar con tu usuario y contraseña, o crear un enlace de un solo uso para otro móvil u ordenador (caduca en 30 minutos).</p>
           <div class="btn-row"><button class="btn outline" data-act="acc-link">Vincular otro dispositivo</button></div>
           ${lastLink ? `<label class="field"><span>Enlace (ábrelo en el otro dispositivo)</span><input readonly id="acc-link-url" value="${esc(lastLink)}" onfocus="this.select()"></label>
             <div class="btn-row"><button class="btn ghost" data-act="copy-input" data-v="acc-link-url">Copiar enlace</button></div>` : ''}
+          ${(sessions || []).length > 1 ? '<div class="btn-row"><button class="btn ghost danger" data-act="sess-others">Cerrar sesión en los demás dispositivos</button></div>' : ''}
           ${(sessions || []).map((s) => `<div class="trash-row"><div class="grow"><b>${esc(deviceName(s.device))}</b>${s.current ? ' <span class="badge-mini">este</span>' : ''}<br><small class="muted">desde ${shortWhen(s.createdAt)} · visto ${shortWhen(s.lastSeen || s.createdAt)}</small></div>
             ${s.current ? '' : `<button class="btn ghost" data-act="sess-revoke" data-v="${esc(s.id)}">Cerrar</button>`}</div>`).join('')}
-          <div class="btn-row"><button class="btn danger ghost" data-act="logout">Cerrar sesión en este dispositivo</button></div>`}
+`}
+      ${settings.token ? '<div class="btn-row"><button class="btn danger ghost" data-act="logout">Cerrar sesión en este dispositivo</button></div>' : ''}
     </div>
   </div>`;
 }
@@ -95,6 +111,10 @@ export async function createDeviceLink() {
   } catch (err) { toast(err.message); return false; }
 }
 
+export async function revokeOtherSessions() {
+  try { await api('sessions/revoke-others', { method: 'POST' }); sessions = sessions.filter((s) => s.current); toast('Sesiones cerradas en los demás dispositivos'); } catch (err) { toast(err.message); }
+}
+
 export async function revokeSession(id) {
   try { await api('sessions/revoke', { method: 'POST', body: { id } }); sessions = sessions.filter((s) => s.id !== id); toast('Sesión cerrada'); } catch (err) { toast(err.message); }
 }
@@ -117,6 +137,7 @@ export async function switchAccount(token, { keepLocal = false } = {}) {
   await storeToken();
   await forgetAccount();
   if (!keepLocal) await resetLocal(null);
+  allowLeave();
   location.replace(location.pathname);
 }
 
@@ -222,7 +243,7 @@ const hasLocalAccount = () => !!settings.token;
 export function loginSheet(code) {
   const go = async () => {
     try {
-      const r = await fetchJson('auth/redeem', { code });
+      const r = await fetchJson('auth/redeem', { code, deviceId: deviceId() });
       toast(`Dispositivo vinculado: ${r.me.name}`);
       await switchAccount(r.token);
     } catch (err) { toast(err.message); }

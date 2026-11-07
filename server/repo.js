@@ -518,10 +518,17 @@ export function createRepo(db) {
   async function getUserPrefs(id) { const x = id === OWNER ? await ensureOwner() : await users().findOne({ _id: id }); return x?.prefs || {}; }
   async function saveUserPrefs(id, prefs) { if (id === OWNER) await ensureOwner(); await users().updateOne({ _id: id }, { $set: { prefs } }); }
 
-  async function createSession(userId, sid, device = '') {
-    await sessions().updateOne({ _id: sid }, { $set: { userId, device: String(device).slice(0, 120), createdAt: Date.now(), lastSeen: Date.now() } }, { upsert: true });
-  }
   const sessionCache = new Map();
+  /** Nueva sesión. Si el mismo dispositivo (deviceId) ya tenía una de esta persona, la anterior se cierra. */
+  async function createSession(userId, sid, device = '', deviceId = '') {
+    const did = /^[a-z0-9]{8,40}$/.test(deviceId) ? deviceId : '';
+    if (did) {
+      for (const s of await sessions().find({ userId }).toArray()) {
+        if (s.deviceId === did && !s.revoked) { await sessions().updateOne({ _id: s._id }, { $set: { revoked: true } }); sessionCache.delete(s._id); }
+      }
+    }
+    await sessions().updateOne({ _id: sid }, { $set: { userId, device: String(device).slice(0, 120), deviceId: did, createdAt: Date.now(), lastSeen: Date.now() } }, { upsert: true });
+  }
   async function sessionActive(userId, sid) {
     const hit = sessionCache.get(sid);
     if (hit && hit.until > Date.now()) return hit.ok;
@@ -543,8 +550,13 @@ export function createRepo(db) {
     sessionCache.delete(sid);
     return true;
   }
-  async function revokeAllSessions(userId) {
-    for (const s of await sessions().find({ userId }).toArray()) { await sessions().updateOne({ _id: s._id }, { $set: { revoked: true } }); sessionCache.delete(s._id); }
+  /** Cierra todas las sesiones de alguien (menos `except`, si se indica). */
+  async function revokeAllSessions(userId, except = null) {
+    for (const s of await sessions().find({ userId }).toArray()) {
+      if (s._id === except || s.revoked) continue;
+      await sessions().updateOne({ _id: s._id }, { $set: { revoked: true } });
+      sessionCache.delete(s._id);
+    }
   }
   /* ---------- Contraseñas e intentos de entrada ---------- */
   const findByHandle = async (handle) => (await users().find({}).toArray()).find((x) => x.handle === String(handle || '').toLowerCase().replace(/^@/, '')) || null;
