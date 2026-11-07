@@ -12,6 +12,7 @@
  * cualquier otro cambio (aparece como mensaje recibido).
  */
 import { tokenOk } from './api.js';
+import { parseRepeat, repeatLabel, firstDate, advance } from '../public/js/recurrence.js';
 
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
 const SERVER_INFO = { name: 'retrodark', title: 'RetroDark — notas y tareas', version: '1.0.0' };
@@ -19,6 +20,8 @@ const INSTRUCTIONS = `RetroDark es la app de notas y tareas del usuario, con for
 - Cada "chat" es una página: tipo "chat" (mensajes libres), "notes" (notas) o "list" (tareas). "General" es la bandeja de entrada.
 - Cada mensaje es "message", "note" o "task". Una tarea tiene done, due (fecha límite AAAA-MM-DD) y remind_at (recordatorio con notificación push).
 - Un mensaje puede ser una lista de casillas: líneas "[ ] algo" / "[x] algo".
+- Una tarea puede repetirse (repeat: "cada día", "laborables", "cada lunes", "cada mes"…); al completarla pasa a su próxima fecha.
+- Un mensaje puede ser una encuesta (poll). delete_message lo manda a la papelera (30 días).
 - Usa list_chats para ver chats, categorías y grupos; read_chat o search_messages para leer; list_tasks para pendientes.
 - Las fechas y horas sin zona se interpretan en la zona horaria del usuario.`;
 
@@ -79,7 +82,8 @@ const todayIn = (tz) => new Intl.DateTimeFormat('sv-SE', { timeZone: tz }).forma
 /* ---------- Acceso a datos ---------- */
 async function loadAll(repo) {
   const d = await repo.exportAll();
-  return { chats: d.chats || [], messages: d.messages || [], categories: d.categories || [], groups: d.groups || [] };
+  // Los mensajes en la papelera no se ven ni se pueden editar desde el asistente.
+  return { chats: d.chats || [], messages: (d.messages || []).filter((m) => !m.trashedAt), categories: d.categories || [], groups: d.groups || [] };
 }
 
 function findChat(data, ref, { fallbackGeneral = false } = {}) {
@@ -128,6 +132,8 @@ function view(m, data, tz) {
     ...(items ? { checklist: items.map((x, i) => ({ item: i + 1, done: x.done, text: x.text })) } : {}),
     ...(m.due ? { due: m.due } : {}),
     ...(m.remindAt ? { remind_at: fmtLocal(m.remindAt, tz) } : {}),
+    ...(m.repeat?.freq ? { repeat: repeatLabel(m.repeat).toLowerCase() } : {}),
+    ...(m.poll ? { poll: pollView(m.poll) } : {}),
     ...(cat ? { category: cat.name } : {}),
     ...(m.tags?.length ? { tags: m.tags } : {}),
     ...(m.starred ? { starred: true } : {}),
@@ -138,6 +144,20 @@ function view(m, data, tz) {
     from: m.from === 'mcp' ? 'asistente' : m.from === 'app' ? 'app' : 'usuario',
   };
 }
+
+function pollView(p) {
+  const counts = Object.fromEntries(p.options.map((o) => [o.id, 0]));
+  for (const ids of Object.values(p.votes || {})) for (const id of ids || []) if (id in counts) counts[id]++;
+  return { question: p.question, multiple: !!p.multi, closed: !!p.closed, options: p.options.map((o) => ({ text: o.text, votes: counts[o.id] })) };
+}
+
+function parseRepeatArg(value) {
+  if (value == null || value === '') return null;
+  const r = parseRepeat(String(value).trim()) || parseRepeat(`cada ${String(value).trim()}`);
+  if (!r) throw new ToolError('repeat no válido. Usa: cada día, laborables, cada semana, cada lunes (u otro día), cada mes o cada año');
+  return r;
+}
+const REPEAT_ARG = { type: ['string', 'null'], description: 'Tarea recurrente: "cada día", "laborables", "cada semana", "cada lunes"…, "cada mes", "cada año". null para quitarla.' };
 
 const extractTags = (text) => [...new Set([...String(text).matchAll(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu)].map((x) => x[1].toLowerCase()))];
 
@@ -262,6 +282,7 @@ const TOOLS = [
         category: str('Nombre de una categoría existente.'),
         tags: { type: 'array', items: { type: 'string' }, description: 'Etiquetas sin #.' },
         reply_to: str('Id de un mensaje al que responder o citar.'),
+        repeat: REPEAT_ARG,
       },
       required: ['text'],
     },
@@ -273,14 +294,17 @@ const TOOLS = [
       const isList = !!checklist(text);
       if (isList) text = normalizeItems(text);
       const defaultKind = { list: 'task', notes: 'note', chat: 'message' }[c.type] || 'message';
-      const kind = isList ? 'note' : args.kind || defaultKind;
+      const kind = isList ? 'note' : args.repeat ? 'task' : args.kind || defaultKind;
       if (args.reply_to) findMessage(data, args.reply_to);
       const now = Date.now();
+      const repeat = parseRepeatArg(args.repeat);
+      const today = todayIn(tz);
       const msg = await save(repo, 'messages', {
+        ...(repeat ? { repeat } : {}),
         id: uid(), chatId: c.id, text, kind, done: false, doneAt: null,
         tags: [...new Set([...extractTags(text), ...(args.tags || []).map((t) => norm(t).replace(/^#/, ''))])],
         categoryId: findCategory(data, args.category)?.id || null,
-        due: parseDue(args.due), remindAt: parseWhen(args.remind_at, tz),
+        due: parseDue(args.due) || (repeat ? firstDate(repeat, today) : null), remindAt: parseWhen(args.remind_at, tz),
         starred: false, pinned: false, from: 'mcp', triaged: true, replyTo: args.reply_to || null, createdAt: now,
       });
       return { created: view(msg, data, tz) };
@@ -303,6 +327,7 @@ const TOOLS = [
         chat: str('Mover a otro chat (nombre o id).'),
         starred: { type: 'boolean' },
         pinned: { type: 'boolean' },
+        repeat: REPEAT_ARG,
       },
       required: ['id'],
     },
@@ -323,6 +348,10 @@ const TOOLS = [
       if (args.chat) m.chatId = findChat(data, args.chat).id;
       if (args.starred !== undefined) m.starred = args.starred;
       if (args.pinned !== undefined) m.pinned = args.pinned;
+      if (args.repeat !== undefined) {
+        const r = parseRepeatArg(args.repeat);
+        if (r) { m.repeat = r; m.kind = 'task'; if (!m.due) m.due = firstDate(r, todayIn(tz)); } else delete m.repeat;
+      }
       m.triaged = true;
       await save(repo, 'messages', m);
       return { updated: view(m, data, tz) };
@@ -354,6 +383,9 @@ const TOOLS = [
         const lines = m.text.split('\n');
         lines[target.line] = `${done ? '[x]' : '[ ]'} ${target.text}`;
         m.text = lines.join('\n');
+      } else if (done && m.repeat?.freq && !m.done) {
+        // Recurrente: pasa a la próxima fecha en vez de quedar hecha.
+        Object.assign(m, advance(m, { tz }), { kind: 'task' });
       } else {
         m.kind = 'task';
         m.done = done;
@@ -366,14 +398,14 @@ const TOOLS = [
   {
     name: 'delete_message',
     title: 'Eliminar mensaje',
-    description: 'Elimina un mensaje de forma permanente (en todos los dispositivos).',
+    description: 'Manda un mensaje a la papelera (en todos los dispositivos). Se puede recuperar desde la app durante 30 días.',
     inputSchema: { type: 'object', properties: { id: str('Id del mensaje.') }, required: ['id'] },
     annotations: { destructiveHint: true },
     async run({ id }, { repo }) {
       const data = await loadAll(repo);
       const m = findMessage(data, id);
-      await repo.applyChanges([{ store: 'messages', id, updatedAt: Math.max(Date.now(), (m.updatedAt || 0) + 1), deleted: true }]);
-      return { deleted: id };
+      await save(repo, 'messages', { ...m, trashedAt: Date.now() });
+      return { trashed: id, note: 'En la papelera durante 30 días' };
     },
   },
   {

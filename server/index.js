@@ -31,9 +31,14 @@ const server = app.listen(config.port, () => {
 const timer = setInterval(() => {
   runReminders(repo, config.vapid).catch((err) => console.error('Recordatorios:', err.message));
 }, 60_000);
+// Papelera: lo que lleva más de 30 días se borra (una vez por hora).
+const purgeTimer = setInterval(() => {
+  repo.purgeTrash(Date.now() - 30 * 864e5).catch((err) => console.error('Papelera:', err.message));
+}, 3600_000);
 
 const shutdown = () => {
   clearInterval(timer);
+  clearInterval(purgeTimer);
   server.close();
   conn.client.close().finally(() => process.exit(0));
 };

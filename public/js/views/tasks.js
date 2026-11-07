@@ -4,14 +4,14 @@ import { ic } from '../icons.js';
 import { S } from '../state.js';
 import { fmt } from '../text.js';
 import { chatById, catById } from '../data/store.js';
-import { catChip, dueChip, empty, catPick, remindChip } from '../ui/parts.js';
+import { catChip, dueChip, empty, catPick, remindChip, repeatChip } from '../ui/parts.js';
 
 function taskRow(m) {
   const c = chatById(m.chatId), cat = catById(m.categoryId);
   return `<div class="task-row ${m.done ? 'done' : ''}" data-act="goto-msg" data-id="${m.id}" role="button" tabindex="0">
     <button class="check ${m.done ? 'on' : ''}" data-act="toggle" data-id="${m.id}" aria-label="${m.done ? 'Marcar como pendiente' : 'Completar'}">${ic('check')}</button>
     <div class="tr-body"><div class="tr-text">${fmt(m.text)}</div>
-      <div class="tr-meta">${c ? `<span>${esc(c.emoji)} ${esc(c.name)}</span>` : ''}${cat ? catChip(cat) : ''}${m.due ? dueChip(m) : ''}${remindChip(m)}${m.starred ? ic('star', 'tiny') : ''}</div>
+      <div class="tr-meta">${c ? `<span>${esc(c.emoji)} ${esc(c.name)}</span>` : ''}${cat ? catChip(cat) : ''}${m.due ? dueChip(m) : ''}${remindChip(m)}${repeatChip(m)}${m.starred ? ic('star', 'tiny') : ''}</div>
     </div></div>`;
 }
 

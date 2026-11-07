@@ -1,15 +1,16 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'retrodark-v10';
+const CACHE = 'retrodark-v11';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
-  './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/theme.css',
+  './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
   './js/main.js', './js/utils.js', './js/icons.js', './js/constants.js', './js/state.js', './js/text.js',
   './js/render.js', './js/actions.js', './js/events.js', './js/backnav.js', './js/push.js', './js/files.js', './js/player.js',
+  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js',
   './js/data/idb.js', './js/data/store.js', './js/data/sync.js',
   './js/ui/dom.js', './js/ui/parts.js',
   './js/views/nav.js', './js/views/pane.js', './js/views/chatList.js', './js/views/tasks.js',
-  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js',
-  './js/sheets/message.js', './js/sheets/chat.js', './js/sheets/group.js', './js/sheets/category.js', './js/sheets/triage.js',
+  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js',
+  './js/sheets/message.js', './js/sheets/chat.js', './js/sheets/group.js', './js/sheets/category.js', './js/sheets/triage.js', './js/sheets/template.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
 ];
 
@@ -50,14 +51,50 @@ self.addEventListener('push', (e) => {
     tag: data.tag || data.msgId || 'retrodark',
     renotify: true,
     icon: 'icons/icon-192.png',
+    actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
     data: { msgId: data.msgId || null },
   }));
 });
+
+/* ---------- Botones de la notificación: ✅ Hecho / ⏰ Posponer ---------- */
+
+/** La app guarda la clave de acceso en IndexedDB (meta → token) para poder usarla aquí. */
+function readToken() {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('retrodark');
+    req.onerror = () => resolve('');
+    req.onsuccess = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('meta')) { d.close(); resolve(''); return; }
+      const get = d.transaction('meta', 'readonly').objectStore('meta').get('token');
+      get.onsuccess = () => { resolve(get.result?.value || ''); d.close(); };
+      get.onerror = () => { resolve(''); d.close(); };
+    };
+  });
+}
+
+async function notificationAction(id, action) {
+  const token = await readToken();
+  const res = await fetch(new URL('api/push/action', self.registration.scope), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    body: JSON.stringify({ id, action, tz: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+  });
+  if (!res.ok) throw new Error(`Error ${res.status}`);
+  // Si la app está abierta, que traiga el cambio.
+  for (const w of await self.clients.matchAll({ type: 'window' })) w.postMessage({ type: 'sync' });
+}
 
 /* Tocar la notificación: abre la app (o la trae al frente) en ese mensaje. */
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const id = e.notification.data?.msgId;
+  if (id && (e.action === 'done' || e.action === 'snooze')) {
+    e.waitUntil(notificationAction(id, e.action).catch(() => self.registration.showNotification('RetroDark', {
+      body: 'No se pudo guardar desde la notificación. Ábrela para hacerlo en la app.', tag: `fail-${id}`, icon: 'icons/icon-192.png', data: { msgId: id },
+    })));
+    return;
+  }
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const win = wins.find((w) => new URL(w.url).origin === location.origin);

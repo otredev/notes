@@ -62,7 +62,7 @@ RetroDark incluye un servidor [MCP](https://modelcontextprotocol.io) en `/mcp` p
 
 En la app, **Ajustes → Asistente de IA (MCP)** muestra la URL y el comando listos para copiar.
 
-Herramientas: `list_chats`, `read_chat`, `search_messages`, `list_tasks`, `add_message` (con fecha límite, recordatorio, categoría, etiquetas o lista de casillas), `update_message`, `complete_task` (también casillas sueltas), `delete_message` y `create_chat`. Las horas sin zona ("2026-11-01T09:30") se entienden en `TIMEZONE` (`wrangler.jsonc`).
+Herramientas: `list_chats`, `read_chat`, `search_messages`, `list_tasks`, `add_message` (con fecha límite, recordatorio, repetición, categoría, etiquetas o lista de casillas), `update_message`, `complete_task` (también casillas sueltas; una tarea recurrente pasa a su próxima fecha), `delete_message` (a la papelera) y `create_chat`. Las horas sin zona ("2026-11-01T09:30") se entienden en `TIMEZONE` (`wrangler.jsonc`).
 
 ### Alternativa: servidor Node en tu PC
 
@@ -104,6 +104,7 @@ El resto de archivos (`public/`) los sirve Cloudflare directamente. En local, `s
 | `POST` | `/api/reset` | Borrar todo |
 | `GET` | `/api/push/key` | Clave pública VAPID |
 | `POST` | `/api/push/subscribe` · `/unsubscribe` · `/test` | Activar, desactivar y probar las notificaciones de un dispositivo |
+| `POST` | `/api/push/action` | Botones de la notificación `{ id, action: "done" \| "snooze", tz }` |
 | `POST` | `/mcp` · `/mcp/<APP_TOKEN>` | Servidor MCP (JSON-RPC, Streamable HTTP) |
 | `PUT` · `GET` | `/api/files/<id>` | Subir y descargar archivos adjuntos en R2 (máx. 50 MB) |
 
@@ -133,7 +134,11 @@ public/
     constants.js  tipos de chat y de mensaje, colores, emojis
     utils.js      utilidades (DOM, fechas)
     icons.js      iconos SVG
-    text.js       atajos al escribir y formato
+    text.js       atajos al escribir y formato (títulos, listas, código, bloques HTML aislados)
+    editor.js     barra de formato y atajos Ctrl+B/I/U
+    recurrence.js tareas recurrentes (lo usan también el servidor y el MCP)
+    calendar.js   "Añadir al calendario" (Google Calendar y .ics)
+    poll.js       encuestas
     render.js     redibujar todo
     actions.js    abrir chats, enviar, completar, importar, borrar…
     events.js     clics, teclado, pulsación larga
@@ -143,8 +148,8 @@ public/
     backnav.js    botón Atrás y "¿Salir?"
     data/         idb.js (IndexedDB), store.js (datos), sync.js (MongoDB)
     ui/           dom.js (avisos y hojas), parts.js (piezas de HTML)
-    views/        nav, pane, chatList, tasks, organize, settings, chat
-    sheets/       message, chat, group, category, triage
+    views/        nav, pane, chatList, tasks, organize, settings, chat, docs, trash
+    sheets/       message, chat, group, category, triage, template
 ```
 
 ## Qué tiene
@@ -158,7 +163,15 @@ public/
 - **Recordatorios con notificación push**: pon fecha y hora a cualquier mensaje (en el mensaje → *Recordatorio*, o con `!mañana 9:30`) y te llega un aviso aunque la app esté cerrada. Al tocarlo se abre ese mensaje.
 - **Responder y citar**: desliza un mensaje a la derecha (o ↩ al pasar el ratón) para responderlo; "Citar en…" lo cita en otro chat. La cita lleva al original y cada mensaje muestra cuántas respuestas tiene.
 - Selección múltiple (mantener pulsado / clic derecho): convertir, categorizar, mover, destacar, copiar o borrar.
-- Vista de **Tareas**, **Organizar** y **Ajustes** (tema, sincronización, exportar/importar).
+- **Formato**: botón Aa junto al cuadro de texto (negrita, cursiva, subrayado, tachado, H1, H3, lista, código) y Ctrl+B / I / U.
+- **Bloques HTML ejecutables**: un bloque ` ```html ` se ejecuta dentro del mensaje en un `iframe` con `sandbox="allow-scripts"` y sin `allow-same-origin` (no puede leer la app ni tus datos). Solo puede comunicar su alto; la app lo acepta únicamente si viene de ese iframe y es un número o un porcentaje.
+- **Editar un mensaje se guarda solo** al cerrar la ventana; *Cancelar* descarta los cambios.
+- **Tareas recurrentes** (`!cada lunes 9:00`, `!laborables`, `!cada mes`…): al completarlas pasan a la próxima fecha.
+- **Notificaciones con botones**: ✅ Hecho y ⏰ Posponer (10 min) sin abrir la app.
+- **Añadir al calendario**: Google Calendar o archivo .ics (Apple, Outlook).
+- **Encuestas** (una o varias respuestas, cerrar/reabrir), **plantillas** sincronizadas y **chats archivados**.
+- **Papelera**: lo eliminado se puede recuperar durante 30 días.
+- Vista de **Tareas**, **Organizar** y **Ajustes** (tema, sincronización, exportar/importar, documentación y papelera).
 
 ## Atajos al escribir
 
@@ -173,4 +186,9 @@ public/
 | `!hoy`, `!mañana`, `!2026-12-24` | Fecha límite |
 | `!mañana 9:30`, `!2026-12-24 18:00` | Fecha límite + recordatorio a esa hora |
 | `!18:00` | Solo recordatorio (hoy, o mañana si esa hora ya pasó) |
-| `*negrita*`, `_cursiva_`, `~tachado~` | Formato |
+| `!cada día`, `!cada lunes 9:00`, `!laborables`, `!cada mes` | Tarea recurrente |
+| `*negrita*`, `_cursiva_`, `__subrayado__`, `~tachado~` | Formato |
+| `# Título`, `### Subtítulo`, `- lista` | Títulos y listas |
+| ` ``` ` … ` ``` ` / ` ```html ` … ` ``` ` | Bloque de código / bloque HTML ejecutable |
+
+La documentación completa está en la app: **Ajustes → Documentación**.

@@ -9,6 +9,8 @@ import { avatar, catChip, empty } from '../ui/parts.js';
 
 function groupChipsHtml() {
   const chips = [['all', 'Todos'], ['pinned', 'Fijados'], ...[...S.groups].sort(byOrder).map((g) => [g.id, g.name])];
+  const archived = S.chats.filter((c) => c.archived).length;
+  if (archived || S.groupFilter === 'archived') chips.push(['archived', `🗄 Archivados${archived ? ` ${archived}` : ''}`]);
   return chips.map(([id, label]) => `<button class="chip ${S.groupFilter === id ? 'on' : ''}" data-act="group-filter" data-id="${id}">${esc(label)}</button>`).join('')
     + `<button class="chip ghost" data-act="new-group" title="Nuevo grupo" aria-label="Nuevo grupo">${ic('plus')}</button>`;
 }
@@ -49,11 +51,11 @@ export function updateSyncIndicator() {
 const lastTs = (c) => lastOf(c.id)?.createdAt || c.createdAt;
 
 function chatList() {
-  let chats = [...S.chats];
+  let chats = S.groupFilter === 'archived' ? S.chats.filter((c) => c.archived) : S.chats.filter((c) => !c.archived);
   if (S.groupFilter === 'pinned') chats = chats.filter((c) => c.pinned);
-  else if (S.groupFilter !== 'all') chats = chats.filter((c) => c.groupId === S.groupFilter);
+  else if (S.groupFilter !== 'all' && S.groupFilter !== 'archived') chats = chats.filter((c) => c.groupId === S.groupFilter);
   chats.sort((a, b) => (b.id === 'general') - (a.id === 'general') || (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0) || lastTs(b) - lastTs(a));
-  if (!chats.length) return empty('No hay chats en este grupo. Asigna chats desde Organizar o al editar un chat.');
+  if (!chats.length) return empty(S.groupFilter === 'archived' ? 'No hay chats archivados.' : 'No hay chats en este grupo. Asigna chats desde Organizar o al editar un chat.');
   return chats.map(chatRow).join('');
 }
 

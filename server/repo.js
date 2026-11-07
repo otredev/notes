@@ -122,7 +122,7 @@ export function createRepo(db) {
       .toArray();
     const out = [];
     for (const d of docs) {
-      if (d.kind === 'task' && d.done) continue;
+      if ((d.kind === 'task' && d.done) || d.trashedAt) continue;
       const sent = await sentCol().findOne({ _id: d._id });
       if (sent && sent.remindAt === d.remindAt) continue;
       out.push({ id: d._id, ...d });
@@ -130,6 +130,20 @@ export function createRepo(db) {
     return out;
   }
   const markReminded = (id, remindAt) => sentCol().updateOne({ _id: id }, { $set: { remindAt, sentAt: Date.now() } }, { upsert: true });
+  async function getMessage(id) {
+    const d = await col('messages').findOne({ _id: id });
+    if (!d || d.deleted) return null;
+    const { _id, _rev, ...rest } = d;
+    return { id: _id, ...rest };
+  }
+
+  /** Borra para siempre lo que lleva en la papelera desde antes de `cutoff`. */
+  async function purgeTrash(cutoff) {
+    const old = await col('messages').find({ trashedAt: { $gt: 0, $lt: cutoff }, deleted: { $ne: true } }).toArray();
+    if (old.length) await applyChanges(old.map((d) => ({ store: 'messages', id: d._id, updatedAt: Math.max(Date.now(), (d.updatedAt || 0) + 1), deleted: true })));
+    return old.length;
+  }
+
   async function getChat(id) {
     const c = await col('chats').findOne({ _id: id });
     return c && !c.deleted ? c : null;
@@ -159,7 +173,7 @@ export function createRepo(db) {
 
   return {
     getResetAt, applyChanges, changesSince, exportAll, wipe, replaceAll,
-    saveSub, deleteSub, listSubs, getSub, dueReminders, markReminded, getChat,
+    saveSub, deleteSub, listSubs, getSub, dueReminders, markReminded, getChat, getMessage, purgeTrash,
     usedFileIds,
   };
 }

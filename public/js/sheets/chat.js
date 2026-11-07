@@ -3,7 +3,7 @@ import { $, uid, esc, isMobile, byOrder } from '../utils.js';
 import { COLORS, EMOJIS, TYPES } from '../constants.js';
 import { S } from '../state.js';
 import { splitTags } from '../text.js';
-import { chatById, msgsOf, put, remove } from '../data/store.js';
+import { chatById, msgsOf, put, remove, trashMessages } from '../data/store.js';
 import { sheet, closeSheet, toast } from '../ui/dom.js';
 import { avatar } from '../ui/parts.js';
 import { refreshAll } from '../render.js';
@@ -38,7 +38,9 @@ export function chatSheet(id) {
     ${isGeneral ? '' : `<label class="field"><span>Etiquetas vinculadas</span><input id="c-tags" value="${esc(c.tags.join(', '))}" placeholder="compras, super" autocomplete="off">
       <small class="muted">Lo que escribas en General con estas #etiquetas llegará aquí automáticamente.</small></label>`}
     <label class="field"><span>Descripción</span><textarea id="c-desc" rows="2" placeholder="Opcional">${esc(c.desc || '')}</textarea></label>
-    ${isGeneral ? '' : `<label class="toggle"><input type="checkbox" id="c-pin" ${c.pinned ? 'checked' : ''}> Fijar arriba en la lista</label>`}`;
+    ${isGeneral ? '' : `<div class="field row"><label class="toggle"><input type="checkbox" id="c-pin" ${c.pinned ? 'checked' : ''}> Fijar arriba en la lista</label>
+      ${orig ? `<label class="toggle"><input type="checkbox" id="c-arch" ${c.archived ? 'checked' : ''}> Archivado</label>` : ''}</div>
+      <small class="muted">Los chats archivados no salen en la lista (filtro "Archivados"), pero siguen recibiendo lo de sus etiquetas.</small>`}`;
 
   sheet(orig ? 'Información del chat' : 'Nuevo chat', body, {
     actions: `${orig && !isGeneral ? '<button class="btn danger ghost" data-s="del">Eliminar</button>' : ''}<span class="grow"></span><button class="btn ghost" data-act="sheet-close">Cancelar</button><button class="btn primary" data-s="save">${orig ? 'Guardar' : 'Crear chat'}</button>`,
@@ -73,6 +75,7 @@ export function chatSheet(id) {
             groupId: $('#c-group', sh).value || null, desc: $('#c-desc', sh).value.trim(),
             tags: isGeneral ? [] : splitTags($('#c-tags', sh).value),
             pinned: isGeneral ? true : $('#c-pin', sh).checked,
+            archived: !isGeneral && !!$('#c-arch', sh)?.checked,
           };
           await put('chats', data);
           closeSheet();
@@ -87,15 +90,17 @@ export function chatSheet(id) {
 
 function deleteChatSheet(c) {
   const n = msgsOf(c.id).length;
-  const body = `<p>¿Eliminar <b>${esc(`${c.emoji} ${c.name}`)}</b>?</p>${n ? `<p class="muted">Tiene ${n} mensaje${n > 1 ? 's' : ''}. Puedes moverlos a General antes de borrar el chat.</p>` : ''}`;
+  const body = `<p>¿Eliminar <b>${esc(`${c.emoji} ${c.name}`)}</b>?</p>${n ? `<p class="muted">Tiene ${n} mensaje${n > 1 ? 's' : ''}. Puedes moverlos a General, o se irán a la Papelera (30 días para recuperarlos).</p>` : ''}`;
   sheet('Eliminar chat', body, {
     actions: `<button class="btn ghost" data-act="sheet-close">Cancelar</button><span class="grow"></span>${n ? '<button class="btn outline" data-s="move">Mover a General</button>' : ''}<button class="btn danger" data-s="all">Eliminar${n ? ' todo' : ''}</button>`,
     onMount: (sh) => sh.addEventListener('click', async (e) => {
       const b = e.target.closest('[data-s]');
       if (!b) return;
       for (const m of msgsOf(c.id)) {
-        if (b.dataset.s === 'move') { m.chatId = 'general'; await put('messages', m); } else await remove('messages', m.id);
+        if (b.dataset.s === 'move') { m.chatId = 'general'; await put('messages', m); }
       }
+      // Sus mensajes van a la papelera (al recuperarlos vuelven a General).
+      if (b.dataset.s !== 'move') await trashMessages(msgsOf(c.id).map((m) => m.id));
       await remove('chats', c.id);
       closeSheet();
       if (S.active === c.id) {

@@ -2,10 +2,12 @@
 import { $, esc, norm, plain, hm, dayKey, dayLabel } from '../utils.js';
 import { ic } from '../icons.js';
 import { TYPES, KINDS, FILTERS } from '../constants.js';
-import { S } from '../state.js';
+import { S, settings } from '../state.js';
 import { fmt, checklistOf, ITEM_RE } from '../text.js';
 import { chatById, catById, msgById, msgsOf, inboxList, summary } from '../data/store.js';
-import { avatar, catChip, dueChip, catPick, remindChip } from '../ui/parts.js';
+import { avatar, catChip, dueChip, catPick, remindChip, repeatChip } from '../ui/parts.js';
+import { toolbarHtml } from '../editor.js';
+import { pollHtml } from '../poll.js';
 import { isImage, isAudio, isVideo, fmtSize, fmtDur, hydrateMedia, canRecord } from '../files.js';
 import { refreshPlayer } from '../player.js';
 
@@ -49,10 +51,12 @@ export function buildMain() {
     <footer class="composer-area" id="composer-area">
       <div class="reply-bar" id="reply-bar" hidden></div>
       <div class="attach-bar" id="attach-bar" hidden></div>
+      <div class="fmt-bar scroll-x" id="fmt-bar" ${settings.fmtBar ? '' : 'hidden'}>${toolbarHtml('composer-input', { extra: true })}</div>
       <div class="composer" id="composer">
         <button class="icon-btn kind-btn" id="kind-btn" data-act="cycle-kind"></button>
         <div class="composer-box">
           <textarea id="composer-input" rows="1" placeholder="Mensaje" enterkeyhint="send"></textarea>
+          <button class="icon-btn fmt-toggle ${settings.fmtBar ? 'on' : ''}" data-act="fmt-toggle" title="Formato, encuestas y plantillas" aria-label="Formato, encuestas y plantillas" aria-pressed="${!!settings.fmtBar}">${ic('format')}</button>
           <button class="icon-btn clip-btn" data-act="attach" title="Adjuntar archivos" aria-label="Adjuntar archivos">${ic('clip')}</button>
         </div>
         <button class="send-btn" id="send-btn" data-act="send" title="Enviar" aria-label="Enviar">${ic('send')}</button>
@@ -225,7 +229,7 @@ function bubble(m, replies) {
   // Mensajes de la app y del asistente (MCP) se ven como recibidos, a la izquierda.
   const side = m.from === 'app' || m.from === 'mcp' ? 'in' : 'out';
   const sender = m.from === 'mcp' ? '<div class="b-sender">🤖 Asistente</div>' : '';
-  const chips = [cat ? catChip(cat) : '', m.due ? dueChip(m) : '', remindChip(m), m.pinned ? `<span class="mini">${ic('pin', 'tiny')}</span>` : ''].join('');
+  const chips = [cat ? catChip(cat) : '', m.due ? dueChip(m) : '', remindChip(m), repeatChip(m), m.pinned ? `<span class="mini">${ic('pin', 'tiny')}</span>` : ''].join('');
   const cl = checklistOf(m.text);
   const kindHeader = cl
     ? `<div class="b-kind">${ic('tasks', 'tiny')} Lista · ${cl.done}/${cl.total}<span class="cl-bar"><i style="width:${Math.round((cl.done / cl.total) * 100)}%"></i></span></div>`
@@ -234,13 +238,14 @@ function bubble(m, replies) {
   const ticks = m.kind === 'task' || cl ? `<span class="ticks ${allDone ? 'read' : ''}">${ic(allDone ? 'done2' : 'check', 'tiny')}</span>` : '';
   const check = m.kind === 'task'
     ? `<button class="check ${m.done ? 'on' : ''}" data-act="toggle" data-id="${m.id}" aria-label="${m.done ? 'Marcar como pendiente' : 'Completar'}">${ic('check')}</button>` : '';
-  return `<div class="msg ${side} k-${m.kind} ${m.done ? 'done' : ''} ${S.selection.has(m.id) ? 'sel' : ''}" data-act="msg" data-id="${m.id}">
+  const wide = m.poll || /```html/i.test(m.text || '');
+  return `<div class="msg ${side} k-${m.kind} ${m.done ? 'done' : ''} ${wide ? 'wide' : ''} ${S.selection.has(m.id) ? 'sel' : ''}" data-act="msg" data-id="${m.id}">
     <button class="b-reply" data-act="reply" data-id="${m.id}" title="Responder" aria-label="Responder">${ic('reply', 'tiny')}</button>
     <div class="bubble ${cat ? 'has-cat' : ''}" ${cat ? `style="--cat:${cat.color}"` : ''}>
       ${sender}${kindHeader}
       ${m.replyTo ? quoteHtml(m.replyTo) : ''}
       ${attachmentsHtml(m)}
-      ${cl ? checklistHtml(m) : m.text?.trim() || check ? `<div class="b-row">${check}<div class="b-text">${fmt(m.text)}</div></div>` : ''}
+      ${m.poll ? pollHtml(m) : cl ? checklistHtml(m) : m.text?.trim() || check ? `<div class="b-row">${check}<div class="b-text">${fmt(m.text, { embedKey: m.id })}</div></div>` : ''}
       ${chips ? `<div class="b-chips">${chips}</div>` : ''}
       <div class="b-meta">${replyCount}${m.starred ? ic('star', 'tiny star') : ''}<span>${hm(m.createdAt)}</span>${ticks}</div>
     </div></div>`;

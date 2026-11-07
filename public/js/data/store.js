@@ -4,7 +4,7 @@ import { uid, todayKey, plain } from '../utils.js';
 import { extractTags, checklistOf, ITEM_RE } from '../text.js';
 import { attachmentsLabel } from '../files.js';
 import { idb, DATA_STORES } from './idb.js';
-import { enqueue, enqueueMany } from './sync.js';
+import { enqueue, enqueueMany, listFor, dropLocal } from './sync.js';
 
 /* ---------- Consultas ---------- */
 export const chatById = (id) => S.chats.find((c) => c.id === id);
@@ -25,6 +25,7 @@ export const inboxList = () => S.messages
   .sort((a, b) => a.createdAt - b.createdAt);
 export const dueNowCount = () => S.messages.filter((m) => m.kind === 'task' && !m.done && m.due && m.due <= todayKey()).length;
 export function kindPrefix(m) {
+  if (m.poll) return '📊 ';
   if (m.kind === 'task') return m.done ? '☑ ' : '☐ ';
   const cl = checklistOf(m.text);
   if (cl) return `☑ ${cl.done}/${cl.total} `;
@@ -51,15 +52,15 @@ export function allTags() {
 /* ---------- Escritura ---------- */
 export async function put(store, obj) {
   obj.updatedAt = Math.max(Date.now(), (obj.updatedAt || 0) + 1);
-  const list = S[store], i = list.findIndex((x) => x.id === obj.id);
-  if (i < 0) list.push(obj); else list[i] = obj;
+  dropLocal(store, obj.id);
+  listFor(store, obj).push(obj);
   await idb.put(store, obj);
   await enqueue(store, obj);
 }
 
 export async function remove(store, id) {
-  const obj = S[store].find((x) => x.id === id);
-  S[store] = S[store].filter((x) => x.id !== id);
+  const obj = S[store].find((x) => x.id === id) || (store === 'messages' ? S.trash.find((x) => x.id === id) : null);
+  dropLocal(store, id);
   await idb.del(store, id);
   await enqueue(store, { id, updatedAt: Math.max(Date.now(), (obj?.updatedAt || 0) + 1) }, true);
 }
@@ -77,6 +78,62 @@ export async function touch(chatId) { const c = chatById(chatId); if (c) await p
 export async function loadLocal() {
   const data = await Promise.all(DATA_STORES.map((s) => idb.all(s)));
   DATA_STORES.forEach((s, i) => { S[s] = data[i]; });
+  S.trash = S.messages.filter((m) => m.trashedAt);
+  S.messages = S.messages.filter((m) => !m.trashedAt);
+}
+
+/* ---------- Papelera ---------- */
+export const TRASH_DAYS = 30;
+
+/** Mueve mensajes a la papelera (se pueden recuperar durante 30 días). */
+export async function trashMessages(ids) {
+  const now = Date.now();
+  for (const id of ids) {
+    const m = msgById(id);
+    if (m) { m.trashedAt = now; await put('messages', m); }
+  }
+}
+
+/** Saca mensajes de la papelera. Si su chat ya no existe, vuelven a General. */
+export async function restoreMessages(ids) {
+  for (const id of ids) {
+    const m = S.trash.find((x) => x.id === id);
+    if (!m) continue;
+    m.trashedAt = null;
+    if (!chatById(m.chatId)) m.chatId = 'general';
+    await put('messages', m);
+  }
+}
+
+/** Borra para siempre (todos, o solo los indicados). */
+export async function emptyTrash(ids = S.trash.map((m) => m.id)) {
+  for (const id of ids) await remove('messages', id);
+}
+
+/** Borra lo que lleva más de 30 días en la papelera. */
+export async function purgeTrash() {
+  const cutoff = Date.now() - TRASH_DAYS * 864e5;
+  const old = S.trash.filter((m) => m.trashedAt < cutoff).map((m) => m.id);
+  if (old.length) await emptyTrash(old);
+  return old.length;
+}
+
+/* ---------- Plantillas ---------- */
+export const tplSorted = () => [...S.templates].sort((a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name));
+
+const DEFAULT_TEMPLATES = [
+  ['tpl-compras', 'Lista de compras', '🛒 *Compras*\n[ ] \n[ ] \n[ ] '],
+  ['tpl-reunion', 'Reunión', '# Reunión\n*Asistentes:* \n\n### Temas\n- \n\n### Acuerdos\n[ ] '],
+  ['tpl-diario', 'Diario', '### Hoy\n- Lo mejor: \n- Aprendí: \n- Mañana quiero: '],
+  ['tpl-semanal', 'Revisión semanal', '[] Revisión semanal !cada lunes 9:00'],
+];
+
+/** Plantillas de ejemplo (una sola vez por dispositivo y solo si no hay ninguna). */
+export async function seedTemplates() {
+  if (S.templates.length || (await idb.get('meta', 'tplSeeded'))) return;
+  const now = Date.now();
+  await putMany('templates', DEFAULT_TEMPLATES.map(([id, name, text], order) => ({ id, name, text, order, createdAt: now, updatedAt: now })));
+  await idb.put('meta', { key: 'tplSeeded', value: true });
 }
 
 /** Crea el chat General y, si no hay nada, unos ejemplos. */

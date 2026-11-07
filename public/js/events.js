@@ -3,7 +3,12 @@ import { $, esc, isMobile } from './utils.js';
 import { TYPES } from './constants.js';
 import { S, settings, saveSettings, applyTheme } from './state.js';
 import { chatById, touch } from './data/store.js';
-import { syncNow } from './data/sync.js';
+import { syncNow, storeToken } from './data/sync.js';
+import { embedSizes, parseEmbedSize, insideFence } from './text.js';
+import { applyFormat, formatShortcut } from './editor.js';
+import { vote, pollSheet } from './poll.js';
+import { templatePicker, templateSheet } from './sheets/template.js';
+import { restoreMessages, emptyTrash } from './data/store.js';
 import { closeSheet, isSheetOpen, confirmSheet, pickSheet, toast, copyText } from './ui/dom.js';
 import { avatar } from './ui/parts.js';
 import { refreshAll } from './render.js';
@@ -26,7 +31,7 @@ import { categorySheet } from './sheets/category.js';
 import { triageSheet } from './sheets/triage.js';
 
 const ACTIONS = {
-  nav: (el) => { S.nav = el.dataset.nav; renderNav(); renderPane(true); },
+  nav: (el) => { S.nav = el.dataset.nav; S.sub = null; renderNav(); renderPane(true); },
   'open-chat': (el) => openChat(el.dataset.id),
   'new-chat': () => chatSheet(null),
   'edit-chat': () => chatSheet(S.active),
@@ -99,11 +104,11 @@ const ACTIONS = {
   },
   'sel-del': () => {
     const n = S.selection.size;
-    confirmSheet(`¿Eliminar ${n} mensaje${n > 1 ? 's' : ''}?`, 'Eliminar', async () => {
-      await deleteMessages([...S.selection]);
+    const ids = [...S.selection];
+    deleteMessages(ids).then(() => {
       S.selection.clear();
       refreshAll();
-      toast('Eliminado');
+      toast(`${n} mensaje${n > 1 ? 's' : ''} en la papelera`, { action: 'Deshacer', fn: async () => { await restoreMessages(ids); refreshAll(); } });
     });
   },
 
@@ -120,7 +125,67 @@ const ACTIONS = {
   'task-cat': (el) => { S.taskCat = el.dataset.v; renderPane(true); },
   'toggle-done-list': () => { S.showDone = !S.showDone; renderPane(); },
   'sheet-close': () => closeSheet(),
+
+  /* ---------- Formato, encuestas y plantillas ---------- */
+  fmt: (el) => applyFormat(document.getElementById(el.dataset.target), el.dataset.v),
+  'fmt-toggle': (el) => {
+    settings.fmtBar = !settings.fmtBar;
+    saveSettings();
+    $('#fmt-bar').hidden = !settings.fmtBar;
+    el.classList.toggle('on', settings.fmtBar);
+    el.setAttribute('aria-pressed', settings.fmtBar);
+    $('#composer-input')?.focus();
+  },
+  'embed-code': (el) => {
+    const src = el.closest('.html-embed')?.querySelector('.he-src');
+    if (!src) return;
+    src.hidden = !src.hidden;
+    el.textContent = src.hidden ? 'Ver código' : 'Ocultar código';
+  },
+  'poll-new': () => pollSheet($('#composer-input')?.value.trim().split('\n')[0] || ''),
+  'poll-vote': (el) => vote(el.dataset.id, el.dataset.o),
+  'tpl-pick': () => templatePicker(),
+  'new-tpl': () => templateSheet(null),
+  'edit-tpl': (el) => templateSheet(el.dataset.id),
+
+  /* ---------- Documentación y papelera (vistas dentro de Ajustes) ---------- */
+  sub: (el) => { S.sub = el.dataset.v || null; renderPane(true); $('#pane .list')?.scrollTo(0, 0); },
+  'trash-restore': async (el) => {
+    await restoreMessages([el.dataset.id]);
+    refreshAll();
+    toast('Mensaje recuperado', { action: 'Ver', fn: () => gotoMsg(el.dataset.id) });
+  },
+  'trash-delete': (el) => confirmSheet('¿Borrar este mensaje para siempre? No se puede deshacer.', 'Borrar', async () => {
+    await emptyTrash([el.dataset.id]);
+    refreshAll();
+  }),
+  'trash-empty': () => confirmSheet(`¿Vaciar la papelera? Se borrarán ${S.trash.length} mensajes para siempre.`, 'Vaciar', async () => {
+    await emptyTrash();
+    refreshAll();
+    toast('Papelera vaciada');
+  }),
 };
+
+/*
+ * Bloques HTML: el iframe (sandbox sin allow-same-origin) solo puede enviar su alto.
+ * Se acepta únicamente si el mensaje viene de uno de esos iframes (event.source) y es
+ * un número (px) o un porcentaje ("56.25%"); todo lo demás se ignora.
+ */
+function onEmbedMessage(e) {
+  if (e.origin !== 'null') return; // los iframes aislados tienen origen opaco
+  const frame = [...document.querySelectorAll('iframe.he-frame')].find((f) => f.contentWindow === e.source);
+  if (!frame) return;
+  const size = parseEmbedSize(e.data);
+  if (!size) return;
+  const prev = embedSizes.get(frame.dataset.key);
+  if (prev && prev.px === size.px && prev.pct === size.pct) return;
+  embedSizes.set(frame.dataset.key, size);
+  const box = $('#messages');
+  const stick = box && box.contains(frame) && box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+  if (size.pct) { frame.style.height = 'auto'; frame.style.aspectRatio = `100 / ${size.pct}`; }
+  else { frame.style.aspectRatio = ''; frame.style.height = `${size.px}px`; }
+  if (stick) box.scrollTop = box.scrollHeight;
+}
 
 /*
  * Gestos sobre los mensajes, como en WhatsApp:
@@ -178,6 +243,7 @@ function bindLongPress() {
 
 export function bindEvents() {
   bindLongPress();
+  window.addEventListener('message', onEmbedMessage);
 
   document.addEventListener('click', (e) => {
     if (e.target.closest('a[href], .ap-seek, video')) return;
@@ -222,9 +288,12 @@ export function bindEvents() {
 
   document.addEventListener('keydown', (e) => {
     const t = e.target;
+    if (t.matches?.('#composer-input, #f-text, #t-text') && formatShortcut(e)) return;
     if (t.id === 'composer-input' && e.key === 'Enter' && !e.isComposing) {
       // Ctrl/Cmd + Enter envía siempre.
       if (e.ctrlKey || e.metaKey) { e.preventDefault(); send(); return; }
+      // Dentro de un bloque ```código```, Enter es un salto de línea.
+      if (insideFence(t.value, t.selectionStart)) return;
       // En una casilla "[] …": Enter crea otra debajo; en una vacía, termina y envía.
       if (!e.shiftKey && listEnter(t, settings.enterSend)) { e.preventDefault(); return; }
       if (!e.shiftKey && settings.enterSend) { e.preventDefault(); send(); return; }
@@ -244,7 +313,7 @@ export function bindEvents() {
     if (t.id === 'set-enter') { settings.enterSend = t.checked; saveSettings(); }
     if (t.id === 'set-exit') { settings.confirmExit = t.checked; saveSettings(); }
     if (t.id === 'set-token') {
-      settings.token = t.value.trim(); saveSettings(); t.blur(); syncNow();
+      settings.token = t.value.trim(); saveSettings(); storeToken(); t.blur(); syncNow();
       const box = $('#mcp-box'); if (box) box.innerHTML = mcpBoxHtml();
     }
   });

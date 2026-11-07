@@ -68,22 +68,29 @@ export function schedule(ms = 700) {
   timer = setTimeout(() => syncNow(), ms);
 }
 
+/* ---------- Listas en memoria ---------- */
+/** Los mensajes de la papelera viven en S.trash; el resto, en su lista. */
+export const listFor = (store, doc) => (store === 'messages' && doc?.trashedAt ? S.trash : S[store]);
+const listsOf = (store) => (store === 'messages' ? [S.messages, S.trash] : [S[store]]);
+export const findLocal = (store, id) => { for (const l of listsOf(store)) { const x = l.find((d) => d.id === id); if (x) return x; } return null; };
+export function dropLocal(store, id) {
+  for (const l of listsOf(store)) { const i = l.findIndex((d) => d.id === id); if (i >= 0) l.splice(i, 1); }
+}
+
 /* ---------- Aplicar cambios que vienen del servidor ---------- */
 async function applyRemote(store, doc) {
   const pending = await idb.get('outbox', `${store}:${doc.id}`);
   if (pending && pending.updatedAt > doc.updatedAt) return false; // lo local es más nuevo
-  const list = S[store];
-  const i = list.findIndex((x) => x.id === doc.id);
-  const local = i >= 0 ? list[i] : null;
+  const local = findLocal(store, doc.id);
   if (local && (local.updatedAt || 0) >= doc.updatedAt) return false; // ya lo tenemos (o es más nuevo)
+  dropLocal(store, doc.id);
   if (doc.deleted) {
     if (!local) return false;
-    list.splice(i, 1);
     await idb.del(store, doc.id);
     return true;
   }
   const { deleted, ...clean } = doc;
-  if (local) list[i] = clean; else list.push(clean);
+  listFor(store, clean).push(clean);
   await idb.put(store, clean);
   return true;
 }
@@ -92,6 +99,7 @@ async function applyRemote(store, doc) {
 export async function resetLocal(resetAt) {
   await idb.clear([...DATA_STORES, 'outbox', 'uploads', 'files']);
   DATA_STORES.forEach((s) => { S[s] = []; });
+  S.trash = [];
   await saveMeta({ key: 'sync', cursor: 0, resetAt });
   await refreshPending();
 }
@@ -115,7 +123,10 @@ async function doSync() {
 
     // Primera sincronización de este dispositivo: sube lo que ya hubiera guardado en local.
     if (meta.cursor === null) {
-      for (const s of DATA_STORES) if (S[s].length) await idb.putMany('outbox', S[s].map((d) => entry(s, d, false)));
+      for (const s of DATA_STORES) {
+        const docs = s === 'messages' ? [...S.messages, ...S.trash] : S[s];
+        if (docs.length) await idb.putMany('outbox', docs.map((d) => entry(s, d, false)));
+      }
     }
 
     let changed = false;
@@ -166,6 +177,9 @@ async function doSync() {
     return false;
   }
 }
+
+/** El service worker necesita la clave para los botones de las notificaciones (Hecho / Posponer). */
+export const storeToken = () => idb.put('meta', { key: 'token', value: settings.token || '' }).catch(() => {});
 
 /** Sincroniza al volver la conexión, al volver a la app y cada 30 s. */
 export function startAutoSync() {

@@ -11,10 +11,20 @@
  *   POST /api/push/subscribe     → guardar la suscripción push de este dispositivo
  *   POST /api/push/unsubscribe   → quitarla
  *   POST /api/push/test          → enviar una notificación de prueba
+ *   POST /api/push/action        → botones de la notificación: { id, action: 'done' | 'snooze', tz }
  */
 
 import { isValidSubscription } from './webpush.js';
 import { pushToAll, vapidReady } from './reminders.js';
+import { advance } from '../public/js/recurrence.js';
+
+/** Posponer desde la notificación. */
+export const SNOOZE_MS = 10 * 60 * 1000;
+
+const validTz = (tz) => {
+  if (typeof tz !== 'string' || tz.length > 64) return null;
+  try { new Intl.DateTimeFormat('en', { timeZone: tz }); return tz; } catch { return null; }
+};
 
 const json = (status, body) => ({ status, body });
 
@@ -35,7 +45,7 @@ export function tokenOk(token, header) {
  * @param {{ method: string, path: string, auth?: string, body?: any, userAgent?: string }} req  path sin el prefijo /api
  * @returns {Promise<{ status: number, body: object }>}
  */
-export async function handleApi({ getRepo, token, vapid }, { method, path, auth, body, userAgent }) {
+export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC' }, { method, path, auth, body, userAgent }) {
   if (method === 'GET' && path === '/health') return json(200, { ok: true, auth: !!token });
   if (!tokenOk(token, auth)) return json(401, { error: 'unauthorized' });
 
@@ -91,6 +101,22 @@ export async function handleApi({ getRepo, token, vapid }, { method, path, auth,
       if (!sub) return json(404, { error: 'Este dispositivo no tiene las notificaciones activadas' });
       const sent = await pushToAll(repo, vapid, { title: 'RetroDark', body: 'Las notificaciones funcionan 🎉', tag: 'test' }, [sub]);
       return sent ? json(200, { ok: true }) : json(502, { error: 'El servicio de notificaciones del navegador rechazó el aviso' });
+    }
+    case 'POST /push/action': {
+      const { id, action } = body || {};
+      if (typeof id !== 'string' || !['done', 'snooze'].includes(action)) return json(400, { error: 'Acción no válida' });
+      const repo = await getRepo();
+      const m = await repo.getMessage(id);
+      if (!m || m.trashedAt) return json(404, { error: 'El mensaje ya no existe' });
+      const now = Date.now();
+      let patch;
+      if (action === 'snooze') patch = { remindAt: now + SNOOZE_MS };
+      else if (m.repeat?.freq) patch = advance(m, { tz: validTz(body.tz) || defaultTz, now });
+      else patch = { kind: 'task', done: true, doneAt: now };
+      const { id: _, ...doc } = { ...m, ...patch, triaged: true };
+      const updatedAt = Math.max(now, (m.updatedAt || 0) + 1);
+      await repo.applyChanges([{ store: 'messages', id, updatedAt, doc }]);
+      return json(200, { ok: true, due: doc.due || null, remindAt: doc.remindAt || null, done: !!doc.done });
     }
     default:
       return json(404, { error: 'not found' });

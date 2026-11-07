@@ -64,9 +64,13 @@ export class Database extends DurableObject {
       try {
         const repo = await this.getRepo();
         const n = await runReminders(repo, vapidFrom(this.env));
-        // Una vez por hora: borra de R2 los adjuntos que ya no usa ningún mensaje.
-        const files = this.env.FILES && new Date().getUTCMinutes() === 17 ? await gcFiles(repo, r2Store(this.env.FILES)) : 0;
-        return jsonResponse(200, { reminders: n, filesRemoved: files });
+        // Una vez por hora: papelera de más de 30 días y adjuntos que ya no usa ningún mensaje.
+        let files = 0, purged = 0;
+        if (new Date().getUTCMinutes() === 17) {
+          purged = await repo.purgeTrash(Date.now() - 30 * 864e5);
+          if (this.env.FILES) files = await gcFiles(repo, r2Store(this.env.FILES));
+        }
+        return jsonResponse(200, { reminders: n, trashPurged: purged, filesRemoved: files });
       } catch (err) {
         console.error('Recordatorios:', err);
         return jsonResponse(500, { error: err.message });
@@ -81,7 +85,7 @@ export class Database extends DurableObject {
     }
     try {
       const r = await handleApi(
-        { getRepo: () => this.getRepo(), token: this.env.APP_TOKEN || '', vapid: vapidFrom(this.env) },
+        { getRepo: () => this.getRepo(), token: this.env.APP_TOKEN || '', vapid: vapidFrom(this.env), tz: this.env.TIMEZONE || 'UTC' },
         {
           method: request.method,
           path: url.pathname.replace(/^\/api/, '') || '/',

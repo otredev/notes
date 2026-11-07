@@ -1,0 +1,90 @@
+/* Fase 1: formato, bloques de código/HTML, encuestas, repetición, papelera, documentación y plantillas. */
+
+/* ---------- Barra de formato ---------- */
+.fmt-bar { display: flex; align-items: center; gap: 2px; padding: 6px 10px 0; overflow-x: auto; scrollbar-width: none; }
+.fmt-bar::-webkit-scrollbar { display: none; }
+.fmt-bar[hidden] { display: none; }
+.fmt-bar.in-sheet { padding: 0 0 4px; }
+.fmt-btn {
+  flex: none; min-width: 34px; height: 32px; padding: 0 8px; border-radius: 8px; font-size: 14px; color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center; background: var(--soft);
+}
+.fmt-btn:hover { background: var(--active); }
+.fmt-btn[data-v="html"] { font-size: 11.5px; font-weight: 700; letter-spacing: .04em; }
+.fmt-sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; flex: none; }
+.fmt-toggle { width: 30px; height: 30px; margin: -5px 0; color: var(--muted); flex: none; }
+.fmt-toggle.on { color: var(--green); }
+[data-mode="dark"] .fmt-btn { background: rgba(255, 255, 255, .04); border: 1px solid var(--glass-border); }
+
+/* ---------- Texto con formato ---------- */
+.md-h1 { font-size: 1.32em; font-weight: 700; line-height: 1.25; margin: 2px 0 4px; }
+.md-h2 { font-size: 1.16em; font-weight: 700; margin: 2px 0 3px; }
+.md-h3 { font-size: 1.04em; font-weight: 700; margin: 2px 0 2px; color: var(--green-strong, var(--green)); }
+.md-ul { margin: 2px 0 4px; padding-left: 20px; }
+.md-ul li { margin: 1px 0; }
+pre.code {
+  margin: 4px 0; padding: 8px 10px; border-radius: 8px; background: rgba(0, 0, 0, .28); overflow-x: auto; max-width: 100%;
+  font: 12.5px/1.45 ui-monospace, Consolas, monospace; white-space: pre; cursor: text;
+}
+:root:not([data-mode="dark"]) pre.code { background: rgba(0, 0, 0, .06); }
+pre.code code { background: none !important; padding: 0 !important; font-size: inherit !important; }
+.he-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 1px 8px; border-radius: 10px; background: var(--soft); color: var(--muted); }
+
+/* ---------- Bloque HTML aislado ---------- */
+.msg.wide .bubble { width: min(75%, 580px); }
+.msg.wide .b-row, .msg.wide .b-text { flex: 1; min-width: 0; width: 100%; }
+.html-embed { margin: 4px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--glass-border, var(--line)); background: rgba(0, 0, 0, .14); cursor: default; }
+.he-head { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; font-size: 11.5px; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--line); }
+.he-head span { flex: 1; letter-spacing: .05em; }
+.he-toggle { font-size: 11.5px; color: var(--green); padding: 2px 6px; border-radius: 6px; }
+.he-toggle:hover { background: var(--hover); }
+.he-frame { display: block; width: 100%; border: 0; background: transparent; max-height: 3000px; }
+.he-src { margin: 0; border-radius: 0; border-top: 1px solid var(--line); }
+
+/* ---------- Encuestas ---------- */
+.poll { min-width: min(260px, 60vw); }
+.poll-q { font-weight: 700; margin: 2px 0; }
+.poll-sub { font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+.poll-opt {
+  position: relative; display: grid; grid-template-columns: 22px 1fr auto; align-items: center; gap: 8px; width: 100%;
+  padding: 7px 4px 12px; text-align: left; border-radius: 8px;
+}
+.poll-opt:hover:not(:disabled) { background: var(--hover); }
+.poll-opt:disabled { cursor: default; }
+.po-check { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--muted); }
+.po-check.sq { border-radius: 4px; }
+.poll-opt.on .po-check { background: var(--green); border-color: var(--green); box-shadow: inset 0 0 0 3px var(--out-solid, rgba(0, 0, 0, .35)); }
+.po-text { min-width: 0; overflow-wrap: anywhere; }
+.po-n { font-size: 12.5px; color: var(--muted); }
+.po-bar { position: absolute; left: 34px; right: 4px; bottom: 4px; height: 4px; border-radius: 3px; background: var(--soft); overflow: hidden; }
+.po-bar i { display: block; height: 100%; background: var(--green); border-radius: 3px; transition: width .25s ease; }
+.poll-opt.top .po-text { font-weight: 600; }
+.poll-foot { font-size: 12px; color: var(--muted); text-align: center; padding-top: 4px; border-top: 1px solid var(--line); margin-top: 4px; }
+.poll-row { display: flex; gap: 6px; margin-bottom: 6px; }
+.poll-row input { flex: 1; }
+.poll-sum { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.poll-sum div { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+
+/* ---------- Repetición y formularios ---------- */
+.repeat-chip { font-size: 11.5px; padding: 1px 7px; border-radius: 10px; background: var(--soft); }
+[data-mode="dark"] .repeat-chip { border: 1px solid var(--glass-border); }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-row .field { margin: 14px 0; }
+@media (max-width: 420px) { .field-row { grid-template-columns: 1fr; gap: 0; } }
+
+/* ---------- Ajustes: enlaces, papelera y documentación ---------- */
+.set-group.links { padding: 0; overflow: hidden; }
+.set-link { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--line); }
+.set-link:last-child { border-bottom: 0; }
+.set-link:hover { background: var(--hover); }
+.pane-head .icon-btn + h1 { flex: 1; }
+.link-btn.danger, .icon-btn.danger { color: var(--danger); }
+.pad { padding: 10px 16px; }
+.trash-row { display: flex; gap: 8px; align-items: center; padding: 10px 8px 10px 16px; border-bottom: 1px solid var(--line); }
+.trash-row .res-text { margin: 2px 0; }
+.trash-acts { display: flex; gap: 2px; flex: none; }
+.docs .help td:first-child { white-space: normal; width: 44%; }
+.docs .set-group p { margin: 6px 0; }
+.docs .md-ul li { margin: 6px 0; }
+.tpl-pick small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.tpl-pick .grow { min-width: 0; }

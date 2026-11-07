@@ -3,10 +3,10 @@
  * MongoDB (en el servidor) es donde se guarda todo de forma permanente.
  */
 const DB_NAME = 'retrodark';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 /** Tipos de documento que se guardan y sincronizan. */
-export const DATA_STORES = ['chats', 'messages', 'categories', 'groups'];
+export const DATA_STORES = ['chats', 'messages', 'categories', 'groups', 'templates'];
 
 let dbPromise = null;
 

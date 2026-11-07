@@ -5,7 +5,12 @@ export const uid = () => Date.now().toString(36) + Math.random().toString(36).sl
 export const esc = (s = '') => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const norm = (s = '') => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 export const uniq = (a) => [...new Set(a)];
-export const plain = (t = '') => t.replace(/[*_~`]/g, '');
+/** Texto sin formato para vistas previas y búsquedas. */
+export const plain = (t = '') => t
+  .replace(/```html[^\n]*\n?[\s\S]*?(?:\n```|$)/g, ' </> HTML ')
+  .replace(/```[^\n]*\n?([\s\S]*?)(?:\n```|$)/g, ' $1 ')
+  .replace(/^#{1,3}\s+/gm, '')
+  .replace(/[*_~`]/g, '');
 export const byOrder = (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name);
 export const isMobile = () => matchMedia('(max-width: 760px)').matches;
 

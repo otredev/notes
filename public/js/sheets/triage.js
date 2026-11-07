@@ -3,7 +3,7 @@ import { $, esc, shortWhen } from '../utils.js';
 import { TYPES, KINDS } from '../constants.js';
 import { S } from '../state.js';
 import { fmt } from '../text.js';
-import { chatById, inboxList, put, remove, touch } from '../data/store.js';
+import { chatById, inboxList, put, touch, trashMessages } from '../data/store.js';
 import { sheet, closeSheet, toast } from '../ui/dom.js';
 import { catPick } from '../ui/parts.js';
 import { refreshAll } from '../render.js';
@@ -49,7 +49,7 @@ export function triageSheet() {
           await put('messages', m);
           if (m.chatId !== 'general') await touch(m.chatId);
         } else if (s === 'del') {
-          await remove('messages', m.id);
+          await trashMessages([m.id]);
         }
         i++;
         refreshAll();

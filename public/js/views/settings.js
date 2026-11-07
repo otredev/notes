@@ -88,30 +88,17 @@ export function settingsPaneHtml() {
     <div class="set-group" id="mcp-box">${mcpBoxHtml()}</div>
     <div class="sec-title">Tus datos</div>
     <div class="set-group">
-      <p class="muted small" style="margin:0">${S.messages.length} mensajes en ${S.chats.length} chats.</p>
+      <p class="muted small" style="margin:0">${S.messages.length} mensajes en ${S.chats.length} chats${S.trash.length ? ` · ${S.trash.length} en la papelera` : ''}.</p>
       <div class="btn-row">
         <button class="btn outline" data-act="export">Exportar copia</button>
         <label class="btn outline">Importar<input type="file" id="import-file" accept="application/json,.json" hidden></label>
         <button class="btn danger ghost" data-act="wipe">Borrar todo</button>
       </div>
     </div>
-    <div class="sec-title">Atajos al escribir</div>
-    <div class="set-group"><table class="help">
-      <tr><td><code>[]</code> o <code>/t</code></td><td>Crea una tarea (<code>[x]</code> ya hecha)</td></tr>
-      <tr><td><code>[] algo</code> + Enter</td><td>Añade otra casilla debajo: una lista en un solo mensaje. Enter en una casilla vacía envía (o Ctrl + Enter).</td></tr>
-      <tr><td><code>/n</code></td><td>Crea una nota</td></tr>
-      <tr><td><code>/m</code></td><td>Mensaje normal, sin clasificar</td></tr>
-      <tr><td><code>#etiqueta</code></td><td>Añade etiquetas. Si un chat tiene esa etiqueta vinculada, lo escrito en General se mueve allí.</td></tr>
-      <tr><td><code>@categoría</code></td><td>Asigna una categoría existente</td></tr>
-      <tr><td><code>!hoy</code> <code>!mañana</code><br><code>!2026-12-24</code></td><td>Fecha límite</td></tr>
-      <tr><td><code>*negrita*</code> <code>_cursiva_</code><br><code>~tachado~</code></td><td>Formato, como en WhatsApp</td></tr>
-    </table></div>
-    <div class="sec-title">Gestos</div>
-    <div class="set-group small">
-      <p>Toca un mensaje para editarlo, cambiar su tipo, categoría, etiquetas, fecha o chat.</p>
-      <p>Mantén pulsado (o clic derecho) para seleccionar varios y clasificarlos de golpe.</p>
-      <p>Desliza un mensaje a la derecha (o pasa el ratón y pulsa ↩) para responderlo. Desde el mensaje, "Citar en…" lo cita en otro chat. Toca una cita para ir al original.</p>
-      <p>Toca el icono a la izquierda del cuadro de texto para elegir si envías un mensaje, una nota o una tarea.</p>
+    <div class="sec-title">Ayuda</div>
+    <div class="set-group links">
+      <button class="set-link" data-act="sub" data-v="docs">${ic('book')}<span class="grow">Documentación<br><small class="muted">Atajos, formato, recordatorios, gestos y reglas del bloque HTML</small></span><span class="muted">›</span></button>
+      <button class="set-link" data-act="sub" data-v="trash">${ic('trash')}<span class="grow">Papelera<br><small class="muted">${S.trash.length ? `${S.trash.length} mensaje${S.trash.length > 1 ? 's' : ''} · ` : ''}se vacía sola a los 30 días</small></span><span class="muted">›</span></button>
     </div>
   </div>`;
 }

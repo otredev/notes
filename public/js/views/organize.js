@@ -1,8 +1,8 @@
 /* Organizar: categorías, grupos de chats y etiquetas. */
-import { esc, byOrder } from '../utils.js';
+import { esc, byOrder, plain } from '../utils.js';
 import { ic } from '../icons.js';
 import { S } from '../state.js';
-import { allTags } from '../data/store.js';
+import { allTags, tplSorted } from '../data/store.js';
 import { empty } from '../ui/parts.js';
 
 export function orgPaneHtml() {
@@ -31,6 +31,9 @@ export function orgPaneHtml() {
     ${catRows || empty('Sin categorías todavía')}
     <div class="sec-title">Grupos de chats <button class="link-btn" data-act="new-group">${ic('plus', 'tiny')} Nuevo</button></div>
     ${groupRows || empty('Sin grupos todavía')}
+    <div class="sec-title">Plantillas <button class="link-btn" data-act="new-tpl">${ic('plus', 'tiny')} Nueva</button></div>
+    ${tplSorted().map((t) => `<div class="org-row" data-act="edit-tpl" data-id="${t.id}" role="button" tabindex="0">${ic('template')}
+      <span class="grow">${esc(t.name)}<br><small class="muted">${esc(plain(t.text).replace(/\s+/g, ' ').trim().slice(0, 70))}</small></span></div>`).join('') || empty('Guarda textos que repites (listas, actas, diarios) para insertarlos desde la barra de formato.')}
     <div class="sec-title">Etiquetas</div>
     <div class="chips wrap pad">${tagChips}</div>
   </div>`;

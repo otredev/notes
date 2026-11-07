@@ -32,6 +32,7 @@ function backInsideApp() {
   if (isSheetOpen()) { closeSheet(); return true; }
   if (S.selection.size) { clearSel(); return true; }
   if (isMobile() && $('#app').classList.contains('chat-open')) { closeChat(); return true; }
+  if (S.sub) { S.sub = null; renderPane(true); return true; }
   if (S.search) { S.search = ''; renderPane(true); return true; }
   if (S.nav !== 'chats') { S.nav = 'chats'; renderNav(); renderPane(true); return true; }
   return false;

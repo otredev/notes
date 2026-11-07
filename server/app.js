@@ -14,7 +14,7 @@ export function createApp({ repo, token = '', vapid = null, timezone = 'UTC', pu
 
   app.use('/api', express.json({ limit: '25mb' }), async (req, res, next) => {
     try {
-      const r = await handleApi({ getRepo: async () => repo, token, vapid }, {
+      const r = await handleApi({ getRepo: async () => repo, token, vapid, tz: timezone }, {
         method: req.method, path: req.path, auth: req.get('authorization'), body: req.body, userAgent: req.get('user-agent'),
       });
       res.status(r.status).json(r.body);

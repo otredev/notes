@@ -1,10 +1,10 @@
 /* RetroDark — notas y tareas con forma de chat. Punto de entrada. */
 import { isMobile } from './utils.js';
 import { S, applyTheme } from './state.js';
-import { loadLocal, seed, chatById, msgById } from './data/store.js';
+import { loadLocal, seed, chatById, msgById, seedTemplates, purgeTrash } from './data/store.js';
 import { refreshPushSubscription } from './push.js';
 import { pruneLocalFiles } from './files.js';
-import { syncNow, onStatus, onRemote, startAutoSync } from './data/sync.js';
+import { syncNow, onStatus, onRemote, startAutoSync, storeToken } from './data/sync.js';
 import { isSheetOpen } from './ui/dom.js';
 import { refreshAll } from './render.js';
 import { renderNav } from './views/nav.js';
@@ -47,16 +47,21 @@ async function init() {
   else buildMain();
 
   startAutoSync();
+  storeToken();
   if (hadLocalData) await syncNow();
+  // Plantillas de ejemplo y limpieza de la papelera (más de 30 días).
+  seedTemplates().then(() => { if (S.nav === 'org') renderPane(true); }).catch(() => {});
+  purgeTrash().then((n) => { if (n) refreshAll(); }).catch(() => {});
   if (wantedMsg) openFromNotification(wantedMsg);
   // Libera espacio: copias de archivos que ya no usa ningún mensaje.
-  setTimeout(() => pruneLocalFiles(S.messages).catch(() => {}), 10000);
+  setTimeout(() => pruneLocalFiles([...S.messages, ...S.trash]).catch(() => {}), 10000);
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
     // Tocar una notificación con la app ya abierta.
     navigator.serviceWorker.addEventListener('message', (e) => {
       if (e.data?.type === 'open-msg') openFromNotification(e.data.id);
+      if (e.data?.type === 'sync') syncNow();
     });
     refreshPushSubscription();
   }

@@ -1,10 +1,11 @@
 /* Acciones del usuario: abrir chats, enviar, completar, seleccionar, exportar… */
-import { $, uid, esc, isMobile, todayKey, remindLabel } from './utils.js';
+import { $, uid, esc, isMobile, todayKey, remindLabel, dueLabel } from './utils.js';
 import { pushState, enablePush } from './push.js';
 import { TYPES } from './constants.js';
 import { S } from './state.js';
 import { parse, toggleItemLine, ITEM_RE } from './text.js';
-import { chatById, msgById, put, remove, touch, seed } from './data/store.js';
+import { chatById, msgById, put, touch, seed, trashMessages } from './data/store.js';
+import { advance, repeatLabel } from './recurrence.js';
 import { api, resetLocal, syncNow, notifyUploads } from './data/sync.js';
 import { toast, closeSheet, confirmSheet, sheet } from './ui/dom.js';
 import { ic } from './icons.js';
@@ -106,6 +107,7 @@ export async function send() {
     triaged: target.id !== 'general' || p.kind !== 'message', createdAt: now,
     replyTo: S.replyTo && msgById(S.replyTo) ? S.replyTo : null,
     remindAt: p.remindAt || null,
+    ...(p.repeat ? { repeat: p.repeat } : {}),
     ...(pending.length ? { attachments: pending.map((x) => x.att) } : {}),
   };
   S.replyTo = null;
@@ -122,6 +124,7 @@ export async function send() {
   refreshAll(true);
   if (target !== chat) toast(`Movido a ${target.emoji} ${target.name}`, { action: 'Ver', fn: () => gotoMsg(msg.id) });
   else if (msg.remindAt) confirmReminder(msg.remindAt);
+  else if (msg.repeat) toast(`🔁 ${repeatLabel(msg.repeat)} · empieza ${dueLabel(msg.due).toLowerCase()}`);
 }
 
 /* ---------- Adjuntos y notas de voz ---------- */
@@ -275,6 +278,15 @@ export function listEnter(ta, sendOnEmpty) {
 export async function toggleDone(id) {
   const m = msgById(id);
   if (!m) return;
+  // Tarea recurrente: en vez de quedar hecha, salta a la próxima fecha.
+  if (m.repeat?.freq && !m.done) {
+    Object.assign(m, advance(m), { kind: 'task', triaged: true });
+    await put('messages', m);
+    navigator.vibrate?.(10);
+    refreshAll();
+    toast(`✔ Hecha. Próxima: ${dueLabel(m.due).toLowerCase()} (${repeatLabel(m.repeat).toLowerCase()})`);
+    return;
+  }
   Object.assign(m, { kind: 'task', done: !m.done, triaged: true });
   m.doneAt = m.done ? Date.now() : null;
   await put('messages', m);
@@ -307,7 +319,7 @@ export async function bulk(fn) {
 
 /* ---------- Datos ---------- */
 export function exportData() {
-  const data = { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), chats: S.chats, messages: S.messages, categories: S.categories, groups: S.groups };
+  const data = { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), chats: S.chats, messages: [...S.messages, ...S.trash], categories: S.categories, groups: S.groups, templates: S.templates };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
   a.download = `retrodark-${todayKey()}.json`;
@@ -355,6 +367,7 @@ export function wipe() {
   });
 }
 
+/** Eliminar = mover a la papelera (30 días para recuperarlo). */
 export async function deleteMessages(ids) {
-  for (const id of ids) await remove('messages', id);
+  await trashMessages(ids);
 }

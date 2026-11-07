@@ -2,7 +2,7 @@
 import { MongoClient } from 'mongodb';
 
 /** Colecciones con datos de la app (una por tipo de documento). */
-export const COLLECTIONS = ['chats', 'messages', 'categories', 'groups'];
+export const COLLECTIONS = ['chats', 'messages', 'categories', 'groups', 'templates'];
 
 export async function connect(uri, dbName) {
   const client = new MongoClient(uri, { serverSelectionTimeoutMS: 8000 });

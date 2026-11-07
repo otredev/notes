@@ -1,5 +1,9 @@
 /* Piezas de HTML reutilizables. */
 import { esc, todayKey, dueLabel, isOverdue, remindLabel } from '../utils.js';
+import { repeatLabel } from '../recurrence.js';
+
+/** Chip de tarea recurrente: 🔁 Cada lunes. */
+export const repeatChip = (m) => (m.repeat?.freq ? `<span class="repeat-chip" title="Se repite">🔁 ${esc(repeatLabel(m.repeat))}</span>` : '');
 
 /** Chip de recordatorio: ⏰ mañana 9:30 (apagado si ya pasó). */
 export const remindChip = (m) => (m.remindAt

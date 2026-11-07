@@ -24,7 +24,9 @@ function summary(m) {
       : a.type?.startsWith('video/') ? '🎬 Vídeo' : `📎 ${a.name}`;
     text = String(m.text || '').trim() ? `${label} · ${text}` : label;
   }
-  text = text.replace(/[*_~`]/g, '');
+  text = text.replace(/```html[^\n]*\n?[\s\S]*?(?:\n```|$)/g, ' </> HTML ').replace(/^#{1,3}\s+/gm, '').replace(/[*_~`]/g, '');
+  if (m.poll) text = `📊 ${m.poll.question}`;
+  if (m.repeat?.freq) text = `🔁 ${text}`;
   return text.length > 180 ? `${text.slice(0, 177)}…` : text;
 }
 
@@ -62,6 +64,10 @@ export async function runReminders(repo, vapid, now = Date.now()) {
       body: summary(m),
       msgId: m.id,
       tag: `remind-${m.id}`,
+      // Botones de la notificación: los gestiona el service worker (POST /api/push/action).
+      actions: m.kind === 'task' && !/^\s*(?:-\s*)?\[[ xX]?\]/m.test(m.text || '')
+        ? [{ action: 'done', title: '✅ Hecho' }, { action: 'snooze', title: '⏰ Posponer' }]
+        : [{ action: 'snooze', title: '⏰ Posponer 10 min' }],
     }, subs);
   }
   return due.length;
