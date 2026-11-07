@@ -8,7 +8,12 @@ import { embedSizes, parseEmbedSize, insideFence } from './text.js';
 import { applyFormat, formatShortcut } from './editor.js';
 import { vote, pollSheet } from './poll.js';
 import { templatePicker, templateSheet } from './sheets/template.js';
-import { restoreMessages, emptyTrash } from './data/store.js';
+import { restoreMessages, emptyTrash, msgById } from './data/store.js';
+import { api } from './data/sync.js';
+import { runAi } from './ai.js';
+import { requireUnlock, lockNow, pinSetupSheet, enableBiometric, disableBiometric, biometricSupported } from './lock.js';
+import { loadServer, loadBackups } from './views/server.js';
+import { localTz } from './recurrence.js';
 import { closeSheet, isSheetOpen, confirmSheet, pickSheet, toast, copyText } from './ui/dom.js';
 import { avatar } from './ui/parts.js';
 import { refreshAll } from './render.js';
@@ -17,6 +22,7 @@ import { renderPane } from './views/pane.js';
 import { refreshChats } from './views/chatList.js';
 import { renderFilters, renderMessages, renderKind, effKind, autosize, updateSendBtn, findAttachment } from './views/chat.js';
 import {
+  moveTask, restoreData,
   openChat, closeChat, gotoMsg, openTag, send, toggleDone, toggleSel, clearSel, selMsgs, bulk,
   exportData, importData, wipe, deleteMessages, startReply, cancelReply, toggleItem, listEnter,
   addFiles, removePending, startVoice, finishVoice, openAttachment,
@@ -29,6 +35,18 @@ import { chatSheet } from './sheets/chat.js';
 import { groupSheet } from './sheets/group.js';
 import { categorySheet } from './sheets/category.js';
 import { triageSheet } from './sheets/triage.js';
+
+/** Guarda ajustes del servidor (y la zona horaria de este dispositivo). */
+async function saveServer(patch, msg = '') {
+  try {
+    S.server = { ...S.server, ...(await api('settings', { method: 'POST', body: { ...patch, tz: localTz() } })) };
+    if (msg) toast(msg);
+  } catch (err) {
+    toast(err.message);
+    await loadServer();
+    renderPane(true);
+  }
+}
 
 const ACTIONS = {
   nav: (el) => { S.nav = el.dataset.nav; S.sub = null; renderNav(); renderPane(true); },
@@ -148,6 +166,61 @@ const ACTIONS = {
   'new-tpl': () => templateSheet(null),
   'edit-tpl': (el) => templateSheet(el.dataset.id),
 
+  /* ---------- IA ---------- */
+  'ai-transcribe': (el) => runAi('transcribe', el.dataset.msg, el.dataset.att),
+  'ai-ocr': (el) => runAi('ocr', el.dataset.msg, el.dataset.att),
+
+  /* ---------- Tareas: vistas, agenda y tablero ---------- */
+  'task-view': (el) => { settings.taskView = el.dataset.v; saveSettings(); renderPane(true); },
+  'agenda-day': (el) => { S.agendaDay = el.dataset.v; renderPane(); },
+  'agenda-month': (el) => {
+    const base = S.agendaMonth || new Date().toISOString().slice(0, 7);
+    const [y, m] = base.split('-').map(Number);
+    const d = new Date(y, m - 1 + Number(el.dataset.v), 1);
+    S.agendaMonth = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    S.agendaDay = null;
+    renderPane();
+  },
+  'agenda-today': () => { S.agendaMonth = null; S.agendaDay = null; renderPane(); },
+  'kb-move': (el) => moveTask(el.dataset.id, el.dataset.v),
+
+  /* ---------- Privacidad ---------- */
+  unlock: () => requireUnlock().then((ok) => ok && renderPane(true)),
+  'lock-now': () => { lockNow(); toast('Chats bloqueados'); },
+  'pin-set': () => pinSetupSheet().then(() => renderPane(true)),
+  'bio-on': async () => {
+    if (!(await biometricSupported())) { toast('Este dispositivo no tiene huella ni Face ID para la web'); return; }
+    try { await enableBiometric(); toast('Huella / Face ID activada'); } catch { toast('No se pudo activar'); }
+    renderPane(true);
+  },
+  'bio-off': () => { disableBiometric(); renderPane(true); },
+
+  /* ---------- Servidor: resumen, calendario, correo y copias ---------- */
+  'srv-summary-test': () => api('summary/test', { method: 'POST' })
+    .then((r) => toast(r.empty ? 'Hoy no hay nada pendiente: no se envió nada' : r.sent ? 'Resumen enviado' : 'No hay dispositivos con notificaciones activadas'))
+    .catch((err) => toast(err.message)),
+  'feed-copy': () => copyText($('#feed-url').value),
+  'email-save': () => saveServer({
+    email: { allowed: $('#email-allowed').value.split(/[\s,;]+/).filter(Boolean), chat: $('#email-chat').value },
+  }, 'Guardado'),
+  'backup-now': () => {
+    toast('Creando copia…');
+    api('backups', { method: 'POST' }).then(async (r) => { toast(`Copia creada: ${r.messages} mensajes`); await loadBackups(); renderPane(); }).catch((err) => toast(err.message));
+  },
+  'backup-dl': async (el) => {
+    try {
+      const data = await api(`backups/${encodeURIComponent(el.dataset.v)}`);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      a.download = `retrodark-${el.dataset.v}`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    } catch (err) { toast(err.message); }
+  },
+  'backup-restore': async (el) => {
+    try { restoreData(await api(`backups/${encodeURIComponent(el.dataset.v)}`), `de la copia ${el.dataset.v.replace(/\.json$/, '')}`); } catch (err) { toast(err.message); }
+  },
+
   /* ---------- Documentación y papelera (vistas dentro de Ajustes) ---------- */
   sub: (el) => { S.sub = el.dataset.v || null; renderPane(true); $('#pane .list')?.scrollTo(0, 0); },
   'trash-restore': async (el) => {
@@ -246,7 +319,7 @@ export function bindEvents() {
   window.addEventListener('message', onEmbedMessage);
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('a[href], .ap-seek, video')) return;
+    if (e.target.closest('a[href], .ap-seek, video, summary, .att-ai-text')) return;
     if (lpFired) {
       lpFired = false;
       if (e.target.closest('.msg')) { e.preventDefault(); return; }
@@ -272,6 +345,30 @@ export function bindEvents() {
     if (e.target.id !== 'composer-input' || !e.clipboardData?.files?.length) return;
     e.preventDefault();
     addFiles(e.clipboardData.files);
+  });
+  // Tablero: arrastrar tarjetas entre columnas.
+  document.addEventListener('dragstart', (e) => {
+    const c = e.target.closest?.('.kb-card');
+    if (!c) return;
+    e.dataTransfer.setData('text/x-retrodark-task', c.dataset.id);
+    e.dataTransfer.effectAllowed = 'move';
+    c.classList.add('dragging');
+  });
+  document.addEventListener('dragend', (e) => e.target.closest?.('.kb-card')?.classList.remove('dragging'));
+  document.addEventListener('dragover', (e) => {
+    const col = e.target.closest?.('.kb-col');
+    if (!col || !e.dataTransfer?.types?.includes('text/x-retrodark-task')) return;
+    e.preventDefault();
+    document.querySelectorAll('.kb-col.over').forEach((x) => x !== col && x.classList.remove('over'));
+    col.classList.add('over');
+  });
+  document.addEventListener('drop', (e) => {
+    const col = e.target.closest?.('.kb-col');
+    const id = e.dataTransfer?.getData('text/x-retrodark-task');
+    document.querySelectorAll('.kb-col.over').forEach((x) => x.classList.remove('over'));
+    if (!col || !id) return;
+    e.preventDefault();
+    moveTask(id, col.dataset.col);
   });
   document.addEventListener('dragover', (e) => {
     if (!e.target.closest('#main') || !S.active || !e.dataTransfer?.types?.includes('Files')) return;
@@ -312,6 +409,11 @@ export function bindEvents() {
     if (t.id === 'attach-input') { addFiles(t.files); t.value = ''; }
     if (t.id === 'set-enter') { settings.enterSend = t.checked; saveSettings(); }
     if (t.id === 'set-exit') { settings.confirmExit = t.checked; saveSettings(); }
+    if (t.id === 'srv-summary-on' || t.id === 'srv-summary-time') {
+      saveServer({ summary: { enabled: $('#srv-summary-on').checked, time: $('#srv-summary-time').value || '08:00' } },
+        $('#srv-summary-on').checked ? `Resumen diario a las ${$('#srv-summary-time').value}` : 'Resumen diario desactivado');
+    }
+    if (t.id === 'srv-backups-on') saveServer({ backups: { enabled: t.checked } }, t.checked ? 'Copias diarias activadas' : 'Copias diarias desactivadas');
     if (t.id === 'set-token') {
       settings.token = t.value.trim(); saveSettings(); storeToken(); t.blur(); syncNow();
       const box = $('#mcp-box'); if (box) box.innerHTML = mcpBoxHtml();

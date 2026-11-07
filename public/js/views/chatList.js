@@ -6,6 +6,7 @@ import { S } from '../state.js';
 import { chatById, catById, lastOf, pendingOf, summary } from '../data/store.js';
 import { getStatus } from '../data/sync.js';
 import { avatar, catChip, empty } from '../ui/parts.js';
+import { isLocked, hiddenChatIds } from '../lock.js';
 
 function groupChipsHtml() {
   const chips = [['all', 'Todos'], ['pinned', 'Fijados'], ...[...S.groups].sort(byOrder).map((g) => [g.id, g.name])];
@@ -61,12 +62,12 @@ function chatList() {
 
 export function chatRow(c) {
   const last = lastOf(c.id), pending = pendingOf(c.id);
-  const prev = last ? `${esc(summary(last))}` : `<i>${esc(c.desc || TYPES[c.type].hint)}</i>`;
+  const prev = isLocked(c) ? '<i>🔒 Chat bloqueado</i>' : last ? `${esc(summary(last))}` : `<i>${esc(c.desc || TYPES[c.type].hint)}</i>`;
   return `<div class="chat-row ${S.active === c.id ? 'on' : ''}" data-act="open-chat" data-id="${c.id}" role="button" tabindex="0">
     ${avatar(c)}
     <div class="cr-body">
       <div class="cr-top"><span class="cr-name">${esc(c.name)}</span><span class="cr-time ${pending ? 'hl' : ''}">${last ? shortWhen(last.createdAt) : ''}</span></div>
-      <div class="cr-bot"><span class="cr-prev">${prev}</span>${c.pinned && c.id !== 'general' ? ic('pin', 'tiny') : ''}${pending ? `<b class="badge" title="Tareas pendientes">${pending}</b>` : ''}</div>
+      <div class="cr-bot"><span class="cr-prev">${prev}</span>${c.locked ? `<span class="lock-ic" title="Bloqueado">${isLocked(c) ? '🔒' : '🔓'}</span>` : ''}${c.pinned && c.id !== 'general' ? ic('pin', 'tiny') : ''}${pending ? `<b class="badge" title="Tareas pendientes">${pending}</b>` : ''}</div>
     </div></div>`;
 }
 
@@ -74,10 +75,11 @@ function searchResults(q) {
   const isTag = q.startsWith('#');
   const nq = norm(isTag ? q.slice(1) : q);
   const chats = isTag ? [] : S.chats.filter((c) => norm(c.name).includes(nq));
-  const msgs = S.messages
+  const hidden = hiddenChatIds();
+  const msgs = S.messages.filter((m) => !hidden.has(m.chatId))
     .filter((m) => (isTag
       ? (m.tags || []).some((t) => norm(t).startsWith(nq))
-      : norm(m.text).includes(nq) || (m.tags || []).some((t) => norm(t).includes(nq)) || (m.attachments || []).some((a) => norm(a.name).includes(nq))))
+      : norm(m.text).includes(nq) || (m.tags || []).some((t) => norm(t).includes(nq)) || (m.attachments || []).some((a) => norm(a.name).includes(nq) || norm(a.text || '').includes(nq))))
     .sort((a, b) => b.createdAt - a.createdAt).slice(0, 200);
   let h = '';
   if (chats.length) h += `<div class="sec-title">Chats</div>${chats.map(chatRow).join('')}`;

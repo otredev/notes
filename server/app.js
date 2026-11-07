@@ -2,6 +2,9 @@
 import express from 'express';
 import { handleApi } from './api.js';
 import { handleMcp } from './mcp.js';
+import { handleFeed } from './feed.js';
+
+const send = (res, r) => (r.raw !== undefined ? res.status(r.status).type(r.type || 'text/plain').send(r.raw) : res.status(r.status).json(r.body));
 
 export function createApp({ repo, token = '', vapid = null, timezone = 'UTC', publicDir }) {
   const app = express();
@@ -11,13 +14,21 @@ export function createApp({ repo, token = '', vapid = null, timezone = 'UTC', pu
   app.use('/api/files', (req, res) => {
     res.status(503).json({ error: 'Los archivos adjuntos solo se guardan en Cloudflare (R2); el servidor local no los admite' });
   });
+  app.use('/api/ai', (req, res) => res.status(503).json({ error: 'La IA (transcribir, leer texto de fotos) solo funciona en Cloudflare' }));
+
+  // Feed de calendario
+  app.get('/cal/:file', async (req, res, next) => {
+    try { send(res, await handleFeed({ getRepo: async () => repo, token, tz: timezone }, { file: req.params.file, origin: `${req.protocol}://${req.get('host')}` })); } catch (err) { next(err); }
+  });
+  // "Compartir con RetroDark" sin service worker
+  app.post('/share', (req, res) => res.redirect(303, './?share=0'));
 
   app.use('/api', express.json({ limit: '25mb' }), async (req, res, next) => {
     try {
       const r = await handleApi({ getRepo: async () => repo, token, vapid, tz: timezone }, {
         method: req.method, path: req.path, auth: req.get('authorization'), body: req.body, userAgent: req.get('user-agent'),
       });
-      res.status(r.status).json(r.body);
+      send(res, r);
     } catch (err) {
       next(err);
     }

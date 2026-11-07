@@ -95,9 +95,12 @@ export function settingsPaneHtml() {
         <button class="btn danger ghost" data-act="wipe">Borrar todo</button>
       </div>
     </div>
-    <div class="sec-title">Ayuda</div>
+    <div class="sec-title">Más</div>
     <div class="set-group links">
       <button class="set-link" data-act="sub" data-v="docs">${ic('book')}<span class="grow">Documentación<br><small class="muted">Atajos, formato, recordatorios, gestos y reglas del bloque HTML</small></span><span class="muted">›</span></button>
+      <button class="set-link" data-act="sub" data-v="auto">⚙️<span class="grow">Automatizaciones<br><small class="muted">Resumen diario, calendario suscrito y correo a nota</small></span><span class="muted">›</span></button>
+      <button class="set-link" data-act="sub" data-v="backups">${ic('archive')}<span class="grow">Copias de seguridad<br><small class="muted">Automáticas cada día en la nube, descargar y restaurar</small></span><span class="muted">›</span></button>
+      <button class="set-link" data-act="sub" data-v="privacy">🔒<span class="grow">Privacidad<br><small class="muted">PIN y huella para los chats bloqueados</small></span><span class="muted">›</span></button>
       <button class="set-link" data-act="sub" data-v="trash">${ic('trash')}<span class="grow">Papelera<br><small class="muted">${S.trash.length ? `${S.trash.length} mensaje${S.trash.length > 1 ? 's' : ''} · ` : ''}se vacía sola a los 30 días</small></span><span class="muted">›</span></button>
     </div>
   </div>`;

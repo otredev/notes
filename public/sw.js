@@ -1,15 +1,15 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'retrodark-v11';
+const CACHE = 'retrodark-v12';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
   './js/main.js', './js/utils.js', './js/icons.js', './js/constants.js', './js/state.js', './js/text.js',
   './js/render.js', './js/actions.js', './js/events.js', './js/backnav.js', './js/push.js', './js/files.js', './js/player.js',
-  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js',
+  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js', './js/ai.js', './js/lock.js',
   './js/data/idb.js', './js/data/store.js', './js/data/sync.js',
   './js/ui/dom.js', './js/ui/parts.js',
   './js/views/nav.js', './js/views/pane.js', './js/views/chatList.js', './js/views/tasks.js',
-  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js',
+  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js', './js/views/server.js',
   './js/sheets/message.js', './js/sheets/chat.js', './js/sheets/group.js', './js/sheets/category.js', './js/sheets/triage.js', './js/sheets/template.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
 ];
@@ -26,11 +26,40 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+/* ---------- "Compartir con RetroDark" (share_target) ---------- */
+/** Guarda lo compartido en IndexedDB (meta → share) para que la app lo ponga en el cuadro de texto. */
+function saveShare(data) {
+  return new Promise((resolve) => {
+    const req = indexedDB.open('retrodark');
+    req.onerror = () => resolve(false);
+    req.onsuccess = () => {
+      const d = req.result;
+      if (!d.objectStoreNames.contains('meta')) { d.close(); resolve(false); return; }
+      const t = d.transaction('meta', 'readwrite');
+      t.objectStore('meta').put({ key: 'share', ...data, at: Date.now() });
+      t.oncomplete = () => { d.close(); resolve(true); };
+      t.onerror = () => { d.close(); resolve(false); };
+    };
+  });
+}
+
+async function handleShare(req) {
+  try {
+    const form = await req.formData();
+    const files = form.getAll('files').filter((f) => f && typeof f === 'object' && f.size);
+    const ok = await saveShare({ title: form.get('title') || '', text: form.get('text') || '', url: form.get('url') || '', files });
+    return Response.redirect(ok ? './?share=1' : './?share=0', 303);
+  } catch {
+    return Response.redirect('./?share=0', 303);
+  }
+}
+
 /* Primero la red (siempre la última versión) y, si no hay conexión, la copia guardada. */
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/')) return;
+  if (req.method === 'POST' && url.origin === location.origin && url.pathname.endsWith('/share')) { e.respondWith(handleShare(req)); return; }
+  if (req.method !== 'GET' || url.origin !== location.origin || url.pathname.includes('/api/') || url.pathname.includes('/cal/')) return;
   e.respondWith(
     fetch(req)
       .then((res) => {
@@ -52,7 +81,7 @@ self.addEventListener('push', (e) => {
     renotify: true,
     icon: 'icons/icon-192.png',
     actions: Array.isArray(data.actions) ? data.actions.slice(0, 2) : [],
-    data: { msgId: data.msgId || null },
+    data: { msgId: data.msgId || null, url: typeof data.url === 'string' && data.url.startsWith('./') ? data.url : null },
   }));
 });
 
@@ -95,14 +124,16 @@ self.addEventListener('notificationclick', (e) => {
     })));
     return;
   }
+  const url = e.notification.data?.url;
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const win = wins.find((w) => new URL(w.url).origin === location.origin);
     if (win) {
       await win.focus();
       if (id) win.postMessage({ type: 'open-msg', id });
+      else if (url) win.postMessage({ type: 'open-url', url });
     } else {
-      await self.clients.openWindow(id ? `./?msg=${encodeURIComponent(id)}` : './');
+      await self.clients.openWindow(id ? `./?msg=${encodeURIComponent(id)}` : url || './');
     }
   })());
 });

@@ -139,9 +139,9 @@ function view(m, data, tz) {
     ...(m.starred ? { starred: true } : {}),
     ...(m.pinned ? { pinned: true } : {}),
     ...(m.replyTo ? { reply_to: m.replyTo } : {}),
-    ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ name: a.name, type: a.type, size: a.size, ...(a.duration ? { duration_s: Math.round(a.duration) } : {}) })) } : {}),
+    ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ name: a.name, type: a.type, size: a.size, ...(a.duration ? { duration_s: Math.round(a.duration) } : {}), ...(a.text ? { text: a.text } : {}) })) } : {}),
     created: fmtLocal(m.createdAt, tz),
-    from: m.from === 'mcp' ? 'asistente' : m.from === 'app' ? 'app' : 'usuario',
+    from: m.from === 'mcp' ? 'asistente' : m.from === 'app' ? 'app' : m.from === 'email' ? `correo${m.fromAddress ? ` (${m.fromAddress})` : ''}` : 'usuario',
   };
 }
 

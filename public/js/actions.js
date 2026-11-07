@@ -6,8 +6,10 @@ import { S } from './state.js';
 import { parse, toggleItemLine, ITEM_RE } from './text.js';
 import { chatById, msgById, put, touch, seed, trashMessages } from './data/store.js';
 import { advance, repeatLabel } from './recurrence.js';
+import { isLocked, requireUnlock } from './lock.js';
 import { api, resetLocal, syncNow, notifyUploads } from './data/sync.js';
-import { toast, closeSheet, confirmSheet, sheet } from './ui/dom.js';
+import { toast, closeSheet, confirmSheet, sheet, copyText } from './ui/dom.js';
+import { runAi, aiAvailable } from './ai.js';
 import { ic } from './icons.js';
 import { prepareFile, storeForUpload, isImage, fmtDur, fmtSize, startRecording, stopRecording, downloadAttachment, hydrateMedia } from './files.js';
 import { refreshAll } from './render.js';
@@ -21,6 +23,8 @@ import {
 /* ---------- Navegación ---------- */
 export function openChat(id, highlightId = null) {
   if (!chatById(id)) return;
+  // Chat bloqueado: primero el PIN.
+  if (isLocked(id)) { requireUnlock().then((ok) => ok && openChat(id, highlightId)); return; }
   if (S.active !== id) { clearPending(); stopRecording(false); }
   Object.assign(S, { active: id, chatFilter: 'all', chatCat: null, chatSearch: '', kind: null, replyTo: null });
   S.selection.clear();
@@ -192,11 +196,19 @@ export async function openAttachment(attId) {
     try { await downloadAttachment(att); } catch (err) { toast(err.message); }
     return;
   }
-  sheet(att.name, `<div class="viewer"><img data-file="${att.id}" alt="${esc(att.name)}"></div>`, {
-    actions: `<span class="muted small">${fmtSize(att.size)}</span><span class="grow"></span><button class="btn primary" data-s="dl">${ic('download', 'tiny')} Descargar</button>`,
+  const msg = S.messages.find((m) => (m.attachments || []).some((a) => a.id === attId));
+  sheet(att.name, `<div class="viewer"><img data-file="${att.id}" alt="${esc(att.name)}"></div>
+    ${att.text ? `<div class="field"><span>📝 Texto de la foto</span><div class="ocr-text">${esc(att.text)}</div></div>` : ''}`, {
+    actions: `<span class="muted small">${fmtSize(att.size)}</span><span class="grow"></span>
+      ${att.text ? '<button class="btn ghost" data-s="copy-text">Copiar texto</button>' : aiAvailable() && msg ? '<button class="btn ghost" data-s="ocr">📝 Extraer texto</button>' : ''}
+      <button class="btn primary" data-s="dl">${ic('download', 'tiny')} Descargar</button>`,
     onMount: (sh) => {
       hydrateMedia(sh, findAttachment);
-      sh.addEventListener('click', (e) => { if (e.target.closest('[data-s=dl]')) downloadAttachment(att).catch((err) => toast(err.message)); });
+      sh.addEventListener('click', (e) => {
+        if (e.target.closest('[data-s=dl]')) downloadAttachment(att).catch((err) => toast(err.message));
+        if (e.target.closest('[data-s=copy-text]')) copyText(att.text);
+        if (e.target.closest('[data-s=ocr]')) { closeSheet(); runAi('ocr', msg.id, att.id); }
+      });
     },
   });
 }
@@ -294,6 +306,16 @@ export async function toggleDone(id) {
   refreshAll();
 }
 
+/** Tablero: mover una tarea a Por hacer / En curso / Hecho. */
+export async function moveTask(id, col) {
+  const m = msgById(id);
+  if (!m) return;
+  if (col === 'done') { if (!m.done) { m.status = null; await toggleDone(id); } return; }
+  Object.assign(m, { kind: 'task', done: false, doneAt: null, status: col === 'doing' ? 'doing' : null, triaged: true });
+  await put('messages', m);
+  refreshAll();
+}
+
 /* ---------- Selección múltiple ---------- */
 export function toggleSel(id) {
   if (!id) return;
@@ -337,7 +359,12 @@ export async function importData(file) {
     toast('Ese archivo no es una copia de RetroDark');
     return;
   }
-  confirmSheet(`Se reemplazarán todos tus datos (en MongoDB y en todos tus dispositivos) por los del archivo: ${data.messages.length} mensajes.`, 'Importar', async () => {
+  restoreData(data, 'del archivo');
+}
+
+/** Reemplaza todo por una copia (archivo importado o copia de seguridad de la nube). */
+export function restoreData(data, from = 'de la copia') {
+  confirmSheet(`Se reemplazarán todos tus datos (en MongoDB y en todos tus dispositivos) por los ${from}: ${data.messages.length} mensajes.`, 'Restaurar', async () => {
     try {
       const res = await api('import', { method: 'POST', body: data });
       await resetLocal(res.resetAt);

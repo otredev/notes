@@ -12,12 +12,14 @@ export const S = {
   replyTo: null, // id del mensaje al que se está respondiendo
   pending: [],   // adjuntos preparados para el próximo mensaje: { att, blob, url }
   taskCat: 'all', showDone: false, installEvt: null,
+  agendaMonth: null, agendaDay: null, // Tareas → Agenda
+  server: null, // ajustes y funciones del servidor (GET /api/settings)
 };
 
 function readLS(k) { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } }
 
 /** Preferencias de este dispositivo (no se sincronizan). */
-export const settings = Object.assign({ theme: 'dark', enterSend: true, confirmExit: true, token: '', fmtBar: false }, readLS('retrodark-settings'));
+export const settings = Object.assign({ theme: 'dark', enterSend: true, confirmExit: true, token: '', fmtBar: false, taskView: 'list' }, readLS('retrodark-settings'));
 
 export function saveSettings() {
   try { localStorage.setItem('retrodark-settings', JSON.stringify(settings)); } catch { /* sin almacenamiento */ }

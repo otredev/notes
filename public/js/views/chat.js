@@ -8,6 +8,20 @@ import { chatById, catById, msgById, msgsOf, inboxList, summary } from '../data/
 import { avatar, catChip, dueChip, catPick, remindChip, repeatChip } from '../ui/parts.js';
 import { toolbarHtml } from '../editor.js';
 import { pollHtml } from '../poll.js';
+import { aiAvailable, aiBusy } from '../ai.js';
+import { isLocked } from '../lock.js';
+
+/** Texto que la IA sacó de un adjunto, o el botón para pedirlo. */
+function aiPart(m, a, kind) {
+  if (a.text) {
+    return kind === 'ocr'
+      ? `<details class="att-ai-text"><summary>📝 Texto de la foto</summary><div>${esc(a.text)}</div></details>`
+      : `<div class="att-ai-text tr">📝 ${esc(a.text)}</div>`;
+  }
+  if (!aiAvailable() || a.textKind) return '';
+  if (aiBusy(a.id)) return `<div class="att-ai-btn busy">${kind === 'ocr' ? 'Leyendo…' : 'Transcribiendo…'}</div>`;
+  return `<button class="att-ai-btn" data-act="ai-${kind}" data-msg="${m.id}" data-att="${a.id}">${kind === 'ocr' ? '📝 Extraer texto' : '📝 Transcribir'}</button>`;
+}
 import { isImage, isAudio, isVideo, fmtSize, fmtDur, hydrateMedia, canRecord } from '../files.js';
 import { refreshPlayer } from '../player.js';
 
@@ -118,13 +132,14 @@ function attachmentsHtml(m) {
   if (imgs.length) {
     h += `<div class="att-grid n${Math.min(imgs.length, 4)}">${imgs.map((a) => `<div class="att att-img loading" data-act="att-open" data-msg="${m.id}" data-att="${a.id}" role="button" tabindex="0">
       <img data-file="${a.id}" alt="${esc(a.name)}" ${a.w ? `style="aspect-ratio:${a.w}/${a.h}"` : ''}></div>`).join('')}</div>`;
+    h += imgs.filter((a) => a.text).map((a) => aiPart(m, a, 'ocr')).join('');
   }
   for (const a of others) {
     if (isAudio(a)) {
       h += `<div class="att att-audio" data-audio="${a.id}">
         <button class="ap-play" data-act="audio-play" data-msg="${m.id}" data-att="${a.id}" aria-label="Reproducir">${ic('play')}</button>
         <input type="range" class="ap-seek" min="0" max="1000" value="0" data-att="${a.id}" aria-label="Posición">
-        <span class="ap-time">${fmtDur(a.duration)}</span><span class="ap-mic">${ic('mic', 'tiny')}</span></div>`;
+        <span class="ap-time">${fmtDur(a.duration)}</span><span class="ap-mic">${ic('mic', 'tiny')}</span></div>${aiPart(m, a, 'transcribe')}`;
     } else if (isVideo(a)) {
       h += `<div class="att att-video loading"><video data-file="${a.id}" controls preload="metadata" playsinline></video></div>`;
     } else {
@@ -147,6 +162,7 @@ export function findAttachment(id) {
 export function quoteHtml(id, { bar = false } = {}) {
   const q = msgById(id);
   if (!q) return `<div class="quote gone">${ic('quote', 'tiny')} Mensaje eliminado</div>`;
+  if (isLocked(q.chatId)) return `<div class="quote gone">🔒 Mensaje de un chat bloqueado</div>`;
   const chat = chatById(q.chatId);
   const cat = catById(q.categoryId);
   const where = q.chatId !== S.active && chat ? `${chat.emoji} ${chat.name} · ` : '';
@@ -196,6 +212,7 @@ export function renderChatHead() {
       <div class="ch-title"><b>${esc(c.name)}</b><small>${esc(sub.join(' · '))}</small></div></div>
     <div class="head-actions">
       ${inbox ? `<button class="icon-btn" data-act="triage" title="Clasificar mensajes" aria-label="Clasificar mensajes">${ic('inbox')}<b class="badge">${inbox}</b></button>` : ''}
+      ${c.locked ? `<button class="icon-btn" data-act="lock-now" title="Bloquear ahora" aria-label="Bloquear ahora">🔒</button>` : ''}
       <button class="icon-btn" data-act="chat-search" title="Buscar en el chat" aria-label="Buscar en el chat">${ic('search')}</button>
       <button class="icon-btn" data-act="edit-chat" title="Información del chat" aria-label="Información del chat">${ic('more')}</button>
     </div>`;
@@ -227,8 +244,9 @@ function bubble(m, replies) {
   const replyCount = r
     ? `<button class="reply-count" data-act="goto-msg" data-id="${r.last}" title="Ir a la última respuesta">${ic('reply', 'tiny')} ${r.n}</button>` : '';
   // Mensajes de la app y del asistente (MCP) se ven como recibidos, a la izquierda.
-  const side = m.from === 'app' || m.from === 'mcp' ? 'in' : 'out';
-  const sender = m.from === 'mcp' ? '<div class="b-sender">🤖 Asistente</div>' : '';
+  const side = m.from === 'app' || m.from === 'mcp' || m.from === 'email' ? 'in' : 'out';
+  const sender = m.from === 'mcp' ? '<div class="b-sender">🤖 Asistente</div>'
+    : m.from === 'email' ? `<div class="b-sender">✉️ Correo${m.fromAddress ? ` · ${esc(m.fromAddress)}` : ''}</div>` : '';
   const chips = [cat ? catChip(cat) : '', m.due ? dueChip(m) : '', remindChip(m), repeatChip(m), m.pinned ? `<span class="mini">${ic('pin', 'tiny')}</span>` : ''].join('');
   const cl = checklistOf(m.text);
   const kindHeader = cl
@@ -260,7 +278,7 @@ export function renderMessages(stick = false) {
   const q = norm(S.chatSearch.trim());
   let list = msgsOf(S.active).filter(filterFn(S.chatFilter));
   if (S.chatCat) list = list.filter((m) => m.categoryId === S.chatCat);
-  if (q) list = list.filter((m) => norm(m.text).includes(q) || (m.tags || []).some((t) => t.includes(q)) || (m.attachments || []).some((a) => norm(a.name).includes(q)));
+  if (q) list = list.filter((m) => norm(m.text).includes(q) || (m.tags || []).some((t) => t.includes(q)) || (m.attachments || []).some((a) => norm(a.name).includes(q) || norm(a.text || '').includes(q)));
 
   // Cuántas respuestas tiene cada mensaje (de cualquier chat) y cuál es la última.
   const replies = new Map();

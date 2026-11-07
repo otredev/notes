@@ -61,7 +61,8 @@ export async function runReminders(repo, vapid, now = Date.now()) {
     const chat = await repo.getChat(m.chatId);
     await pushToAll(repo, vapid, {
       title: chat ? `⏰ ${chat.emoji || ''} ${chat.name}`.replace(/\s+/g, ' ') : '⏰ Recordatorio',
-      body: summary(m),
+      // En un chat bloqueado no se muestra el contenido.
+      body: chat?.locked ? '🔒 Recordatorio en un chat bloqueado' : summary(m),
       msgId: m.id,
       tag: `remind-${m.id}`,
       // Botones de la notificación: los gestiona el service worker (POST /api/push/action).

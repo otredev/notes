@@ -41,6 +41,45 @@ Luego, en cada dispositivo: **Ajustes → Notificaciones → Activar notificacio
 
 El Worker revisa los recordatorios cada minuto (`triggers.crons` en `wrangler.jsonc`) y envía el aviso a todos los dispositivos con las notificaciones activadas. Si cambias las claves VAPID, cada dispositivo tiene que volver a activarlas.
 
+### Inteligencia artificial (Workers AI)
+
+No hay que configurar nada: `wrangler.jsonc` ya trae el binding `AI`. Se usa al pulsar **📝 Transcribir** (notas de voz, modelo Whisper) o **📝 Extraer texto** (fotos, modelo de visión Llama 3.2). La primera vez que se lee una foto, el Worker acepta la licencia de Meta en tu cuenta; si fallara, acéptala tú una vez:
+
+```bash
+curl https://api.cloudflare.com/client/v4/accounts/TU_ACCOUNT_ID/ai/run/@cf/meta/llama-3.2-11b-vision-instruct \
+  -H "Authorization: Bearer TU_API_TOKEN" -d '{ "prompt": "agree" }'
+```
+
+Workers AI tiene una cuota gratuita diaria; lo que pase de ahí se cobra en tu cuenta de Cloudflare.
+
+### Correo a nota (opcional, necesita un dominio propio en Cloudflare)
+
+1. Panel de Cloudflare → tu dominio → **Email → Email Routing** → actívalo.
+2. **Routing rules → Create address** (p. ej. `notas@tudominio.com`) → acción **Send to a Worker** → `retrodark`.
+3. En la app: **Ajustes → Automatizaciones → Correo a nota**, escribe los remitentes permitidos (los demás se rechazan).
+
+### Resumen diario y copias de seguridad
+
+En **Ajustes → Automatizaciones** activas el resumen de cada mañana (necesita las claves VAPID). Las copias diarias van a R2 (`backups/` dentro del bucket de adjuntos) y se gestionan en **Ajustes → Copias de seguridad**. Las dos usan tu zona horaria.
+
+### App Android (Trusted Web Activity)
+
+Para publicarla en Google Play o instalarla como app nativa:
+
+```bash
+npx @bubblewrap/cli init --manifest https://retrodark.<tu-subdominio>.workers.dev/manifest.webmanifest
+npx @bubblewrap/cli build
+```
+
+Bubblewrap te muestra la huella SHA-256 de tu clave de firma (o cópiala de Play Console → *Integridad de la app*). Ponla en `wrangler.jsonc` junto al nombre del paquete y despliega, para que la app abra sin barra del navegador:
+
+```jsonc
+"ANDROID_PACKAGE": "dev.workers.retrodark.twa",
+"ANDROID_SHA256": "AA:BB:CC:…"
+```
+
+Se sirve en `/.well-known/assetlinks.json`. Con la app instalada, "Ok Google, abre RetroDark" la abre y al mantener pulsado el icono salen los accesos directos.
+
 Dominio propio: panel de Cloudflare → *Workers & Pages → retrodark → Settings → Domains & Routes → Add → Custom domain*.
 
 | Comando | Para qué |
@@ -107,6 +146,12 @@ El resto de archivos (`public/`) los sirve Cloudflare directamente. En local, `s
 | `POST` | `/api/push/action` | Botones de la notificación `{ id, action: "done" \| "snooze", tz }` |
 | `POST` | `/mcp` · `/mcp/<APP_TOKEN>` | Servidor MCP (JSON-RPC, Streamable HTTP) |
 | `PUT` · `GET` | `/api/files/<id>` | Subir y descargar archivos adjuntos en R2 (máx. 50 MB) |
+| `POST` | `/api/ai/transcribe` · `/api/ai/ocr` | `{ fileId }` → `{ text }` con Workers AI |
+| `GET` · `POST` | `/api/settings` | Ajustes del servidor: resumen diario, copias, correo, zona horaria |
+| `POST` | `/api/summary/test` | Enviar el resumen del día ahora |
+| `GET` · `POST` | `/api/backups` · `GET /api/backups/<nombre>` | Copias de seguridad en R2 |
+| `GET` | `/cal/<clave>.ics` | Calendario suscrito (la clave se deriva de `APP_TOKEN`; solo lectura) |
+| `GET` | `/.well-known/assetlinks.json` | Verificación de la app Android (TWA) |
 
 ## Estructura
 
@@ -120,6 +165,12 @@ server/
   reminders.js    revisa los recordatorios vencidos y los envía
   mcp.js          servidor MCP para asistentes de IA (herramientas sobre chats, notas y tareas)
   files.js        archivos adjuntos en Cloudflare R2
+  ai.js           Workers AI: transcribir audio y leer texto de fotos
+  feed.js         calendario suscrito (.ics)
+  daily.js        resumen diario y copia de seguridad diaria
+  backups.js      copias de seguridad en R2
+  email.js        correo a nota (Email Routing)
+  settings.js     ajustes del servidor (validación y valores por defecto)
   repo.js         lectura y escritura en MongoDB (sincronización)
   db.js           conexión e índices
   app.js          servidor Express para usar en local
@@ -139,6 +190,8 @@ public/
     recurrence.js tareas recurrentes (lo usan también el servidor y el MCP)
     calendar.js   "Añadir al calendario" (Google Calendar y .ics)
     poll.js       encuestas
+    ai.js         transcribir / extraer texto (Workers AI)
+    lock.js       bloqueo de chats con PIN y huella
     render.js     redibujar todo
     actions.js    abrir chats, enviar, completar, importar, borrar…
     events.js     clics, teclado, pulsación larga
@@ -148,7 +201,7 @@ public/
     backnav.js    botón Atrás y "¿Salir?"
     data/         idb.js (IndexedDB), store.js (datos), sync.js (MongoDB)
     ui/           dom.js (avisos y hojas), parts.js (piezas de HTML)
-    views/        nav, pane, chatList, tasks, organize, settings, chat, docs, trash
+    views/        nav, pane, chatList, tasks (lista, agenda, tablero), organize, settings, server, chat, docs, trash
     sheets/       message, chat, group, category, triage, template
 ```
 
@@ -171,6 +224,12 @@ public/
 - **Añadir al calendario**: Google Calendar o archivo .ics (Apple, Outlook).
 - **Encuestas** (una o varias respuestas, cerrar/reabrir), **plantillas** sincronizadas y **chats archivados**.
 - **Papelera**: lo eliminado se puede recuperar durante 30 días.
+- **Tareas en tres vistas**: lista, **agenda** del mes (con repeticiones) y **tablero** Por hacer / En curso / Hecho.
+- **IA de Cloudflare**: transcribir notas de voz y extraer el texto de fotos (se puede buscar).
+- **Resumen del día** por notificación, **calendario suscrito** (.ics para Google/Apple/Outlook) y **correo a nota**.
+- **Copias de seguridad** diarias en R2 con descarga y restauración.
+- **Chats bloqueados** con PIN o huella / Face ID.
+- **Compartir con RetroDark** desde otras apps y **accesos directos** del icono (nueva tarea, nueva nota, agenda).
 - Vista de **Tareas**, **Organizar** y **Ajustes** (tema, sincronización, exportar/importar, documentación y papelera).
 
 ## Atajos al escribir

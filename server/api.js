@@ -12,19 +12,22 @@
  *   POST /api/push/unsubscribe   → quitarla
  *   POST /api/push/test          → enviar una notificación de prueba
  *   POST /api/push/action        → botones de la notificación: { id, action: 'done' | 'snooze', tz }
+ *   GET|POST /api/settings       → ajustes del servidor (resumen diario, copias, correo)
+ *   POST /api/summary/test       → enviar el resumen del día ahora
+ *   GET|POST /api/backups, GET /api/backups/<nombre> → copias de seguridad en R2
  */
 
 import { isValidSubscription } from './webpush.js';
 import { pushToAll, vapidReady } from './reminders.js';
 import { advance } from '../public/js/recurrence.js';
+import { withDefaults, cleanPatch } from './settings.js';
+import { sendSummary } from './daily.js';
+import { handleBackups } from './backups.js';
 
 /** Posponer desde la notificación. */
 export const SNOOZE_MS = 10 * 60 * 1000;
 
-const validTz = (tz) => {
-  if (typeof tz !== 'string' || tz.length > 64) return null;
-  try { new Intl.DateTimeFormat('en', { timeZone: tz }); return tz; } catch { return null; }
-};
+import { validTz } from './settings.js';
 
 const json = (status, body) => ({ status, body });
 
@@ -45,9 +48,11 @@ export function tokenOk(token, header) {
  * @param {{ method: string, path: string, auth?: string, body?: any, userAgent?: string }} req  path sin el prefijo /api
  * @returns {Promise<{ status: number, body: object }>}
  */
-export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC' }, { method, path, auth, body, userAgent }) {
+export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC', backups = null, features = {} }, { method, path, auth, body, userAgent }) {
   if (method === 'GET' && path === '/health') return json(200, { ok: true, auth: !!token });
   if (!tokenOk(token, auth)) return json(401, { error: 'unauthorized' });
+
+  if (path === '/backups' || path.startsWith('/backups/')) return handleBackups({ getRepo, store: backups }, { method, path });
 
   const route = `${method} ${path}`;
   switch (route) {
@@ -117,6 +122,24 @@ export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC' }
       const updatedAt = Math.max(now, (m.updatedAt || 0) + 1);
       await repo.applyChanges([{ store: 'messages', id, updatedAt, doc }]);
       return json(200, { ok: true, due: doc.due || null, remindAt: doc.remindAt || null, done: !!doc.done });
+    }
+    /* ---------- Ajustes del servidor ---------- */
+    case 'GET /settings': {
+      const repo = await getRepo();
+      return json(200, { ...withDefaults(await repo.getServerSettings(), defaultTz), features: { push: vapidReady(vapid), backups: !!backups, ...features } });
+    }
+    case 'POST /settings': {
+      let patch;
+      try { patch = cleanPatch(body || {}); } catch (err) { return json(400, { error: err.message }); }
+      const repo = await getRepo();
+      await repo.saveServerSettings(patch);
+      return json(200, withDefaults(await repo.getServerSettings(), defaultTz));
+    }
+    case 'POST /summary/test': {
+      if (!vapidReady(vapid)) return json(503, { error: 'Faltan las claves VAPID en el servidor' });
+      const repo = await getRepo();
+      const s = withDefaults(await repo.getServerSettings(), defaultTz);
+      return json(200, { ok: true, ...(await sendSummary(repo, vapid, s.tz)) });
     }
     default:
       return json(404, { error: 'not found' });

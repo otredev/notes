@@ -9,6 +9,7 @@ import { avatar } from '../ui/parts.js';
 import { refreshAll } from '../render.js';
 import { openChat, closeChat } from '../actions.js';
 import { buildMain } from '../views/chat.js';
+import { hasPin, pinSetupSheet, requireUnlock } from '../lock.js';
 
 export function chatSheet(id) {
   const orig = id ? chatById(id) : null;
@@ -39,7 +40,8 @@ export function chatSheet(id) {
       <small class="muted">Lo que escribas en General con estas #etiquetas llegará aquí automáticamente.</small></label>`}
     <label class="field"><span>Descripción</span><textarea id="c-desc" rows="2" placeholder="Opcional">${esc(c.desc || '')}</textarea></label>
     ${isGeneral ? '' : `<div class="field row"><label class="toggle"><input type="checkbox" id="c-pin" ${c.pinned ? 'checked' : ''}> Fijar arriba en la lista</label>
-      ${orig ? `<label class="toggle"><input type="checkbox" id="c-arch" ${c.archived ? 'checked' : ''}> Archivado</label>` : ''}</div>
+      ${orig ? `<label class="toggle"><input type="checkbox" id="c-arch" ${c.archived ? 'checked' : ''}> Archivado</label>` : ''}
+      <label class="toggle"><input type="checkbox" id="c-lock" ${c.locked ? 'checked' : ''}> 🔒 Bloquear con PIN</label></div>
       <small class="muted">Los chats archivados no salen en la lista (filtro "Archivados"), pero siguen recibiendo lo de sus etiquetas.</small>`}`;
 
   sheet(orig ? 'Información del chat' : 'Nuevo chat', body, {
@@ -76,7 +78,11 @@ export function chatSheet(id) {
             tags: isGeneral ? [] : splitTags($('#c-tags', sh).value),
             pinned: isGeneral ? true : $('#c-pin', sh).checked,
             archived: !isGeneral && !!$('#c-arch', sh)?.checked,
+            locked: !isGeneral && !!$('#c-lock', sh)?.checked,
           };
+          // Bloquear necesita un PIN en este dispositivo; desbloquear, el PIN actual.
+          if (data.locked && !hasPin() && !(await pinSetupSheet())) return;
+          if (!data.locked && orig?.locked && !(await requireUnlock('Quitar el bloqueo'))) return;
           await put('chats', data);
           closeSheet();
           if (!orig) { openChat(data.id); toast('Chat creado'); }

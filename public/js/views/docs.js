@@ -79,6 +79,43 @@ export function docsPaneHtml() {
       ['Barra ' + ic('format', 'tiny') + ' → ' + ic('template', 'tiny'), 'Insertar una plantilla. Se crean y editan en Organizar'],
     ])}
 
+    <div class="sec-title">Tareas: lista, agenda y tablero</div>
+    ${table([
+      ['Lista', 'Vencidas, hoy, próximas, sin fecha y completadas'],
+      ['Agenda', 'Calendario del mes: tareas, fechas y recordatorios (también las próximas repeticiones, en gris)'],
+      ['Tablero', 'Por hacer · En curso · Hecho. Arrastra las tarjetas (ordenador) o usa ‹ ›'],
+    ])}
+
+    <div class="sec-title">Inteligencia artificial</div>
+    ${table([
+      ['📝 Transcribir', 'Bajo una nota de voz: la convierte en texto (se puede buscar)'],
+      ['📝 Extraer texto', 'Al abrir una foto: lee el texto que aparece en ella (tickets, notas, pizarras…)'],
+    ])}
+    <p class="muted small pad">Usa Workers AI de Cloudflare: el archivo se procesa en tu cuenta de Cloudflare.</p>
+
+    <div class="sec-title">Compartir y accesos directos</div>
+    ${table([
+      ['Compartir → RetroDark', 'Desde otra app (con RetroDark instalada): el texto, enlace o archivos llegan al cuadro de General'],
+      ['Mantener pulsado el icono', 'Nueva tarea, Nueva nota, General y Agenda'],
+      ['"Ok Google, abre RetroDark"', 'Con la app instalada (o la app Android), el asistente la abre'],
+    ])}
+
+    <div class="sec-title">Automatizaciones (Ajustes)</div>
+    ${table([
+      ['Resumen del día', 'Notificación cada mañana con lo de hoy, lo vencido y los recordatorios'],
+      ['Calendario suscrito', 'URL para Google Calendar, Apple u Outlook: tus fechas se ven allí y se actualizan solas'],
+      ['Correo a nota', 'Reenvía correos a tu dirección: asunto en negrita, <code>[]</code>/<code>tarea:</code> o <code>nota:</code> al inicio del asunto, <code>#etiqueta</code> para el chat'],
+      ['Copias de seguridad', 'Una al día en la nube (se guardan 30); descárgalas o restáuralas'],
+    ])}
+
+    <div class="sec-title">Privacidad</div>
+    ${table([
+      ['Información del chat → Bloquear', 'Pide PIN (o huella / Face ID) para verlo'],
+      ['🔒 en la cabecera', 'Vuelve a bloquear al momento'],
+      ['Se bloquea solo', 'Tras 1 minuto con la app en segundo plano'],
+      ['Oculta', 'Vista previa, búsqueda, Tareas, calendario suscrito y texto de las notificaciones'],
+    ])}
+
     <div class="sec-title">Editar mensajes</div>
     ${table([
       ['Tocar un mensaje', 'Editar texto, tipo, categoría, etiquetas, fechas, repetición, chat…'],

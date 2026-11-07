@@ -7,6 +7,9 @@
  * - Cada minuto (cron) el Durable Object revisa los recordatorios y envía las notificaciones push.
  * - /mcp es el servidor MCP para asistentes de IA (también pasa por el Durable Object).
  * - /api/files/<id> guarda y sirve los archivos adjuntos en Cloudflare R2 (binding FILES).
+ * - /api/ai/* transcribe notas de voz y saca el texto de fotos con Workers AI (binding AI).
+ * - /cal/<clave>.ics es el feed de calendario; /.well-known/assetlinks.json, la app Android (TWA).
+ * - email(): correo a nota con Cloudflare Email Routing.
  */
 import { DurableObject } from 'cloudflare:workers';
 import { MongoClient } from 'mongodb';
@@ -15,12 +18,23 @@ import { createRepo } from '../server/repo.js';
 import { handleApi } from '../server/api.js';
 import { runReminders } from '../server/reminders.js';
 import { handleMcp } from '../server/mcp.js';
-import { handleFiles, r2Store, gcFiles } from '../server/files.js';
+import { handleFiles, r2Store, gcFiles, MAX_FILE_BYTES } from '../server/files.js';
+import { handleAi } from '../server/ai.js';
+import { handleFeed } from '../server/feed.js';
+import { runDaily } from '../server/daily.js';
+import { r2Backups } from '../server/backups.js';
+import { senderAllowed, emailToMessage, htmlToText, MAX_EMAIL_ATTACHMENTS } from '../server/email.js';
+import PostalMime from 'postal-mime';
 
 const jsonResponse = (status, body) => new Response(JSON.stringify(body), {
   status,
   headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
 });
+
+/** Respuesta de handleApi / handleFeed: JSON o texto tal cual (raw). */
+const toResponse = (r) => (r.raw !== undefined
+  ? new Response(r.raw, { status: r.status, headers: { 'Content-Type': r.type || 'text/plain', 'Cache-Control': 'no-store' } })
+  : jsonResponse(r.status, r.body));
 
 const vapidFrom = (env) => ({
   publicKey: env.VAPID_PUBLIC_KEY || '',
@@ -64,20 +78,46 @@ export class Database extends DurableObject {
       try {
         const repo = await this.getRepo();
         const n = await runReminders(repo, vapidFrom(this.env));
+        // Resumen del día y copia de seguridad diaria (a su hora).
+        const daily = await runDaily(repo, { vapid: vapidFrom(this.env), backups: this.env.FILES ? r2Backups(this.env.FILES) : null, tz: this.env.TIMEZONE || 'UTC' });
         // Una vez por hora: papelera de más de 30 días y adjuntos que ya no usa ningún mensaje.
         let files = 0, purged = 0;
         if (new Date().getUTCMinutes() === 17) {
           purged = await repo.purgeTrash(Date.now() - 30 * 864e5);
           if (this.env.FILES) files = await gcFiles(repo, r2Store(this.env.FILES));
         }
-        return jsonResponse(200, { reminders: n, trashPurged: purged, filesRemoved: files });
+        return jsonResponse(200, { reminders: n, ...daily, trashPurged: purged, filesRemoved: files });
       } catch (err) {
         console.error('Recordatorios:', err);
         return jsonResponse(500, { error: err.message });
       }
     }
 
+    // Correo a nota (llamadas internas desde email()).
+    if (url.pathname === '/internal/email-check') {
+      const { from } = await request.json();
+      const repo = await this.getRepo();
+      return jsonResponse(200, { allowed: senderAllowed(await repo.getServerSettings(), from) });
+    }
+    if (url.pathname === '/internal/email') {
+      const repo = await this.getRepo();
+      return jsonResponse(200, await emailToMessage(repo, await request.json(), { tz: this.env.TIMEZONE || 'UTC' }));
+    }
+
     if (url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) return this.mcp(request, url);
+
+    if (url.pathname.startsWith('/cal/')) {
+      try {
+        const r = await handleFeed(
+          { getRepo: () => this.getRepo(), token: this.env.APP_TOKEN || '', tz: this.env.TIMEZONE || 'UTC' },
+          { file: decodeURIComponent(url.pathname.slice(5)), origin: url.origin },
+        );
+        return toResponse(r);
+      } catch (err) {
+        console.error('Feed', err);
+        return jsonResponse(500, { error: 'Error del servidor' });
+      }
+    }
 
     let body;
     if (request.method === 'POST') {
@@ -85,7 +125,11 @@ export class Database extends DurableObject {
     }
     try {
       const r = await handleApi(
-        { getRepo: () => this.getRepo(), token: this.env.APP_TOKEN || '', vapid: vapidFrom(this.env), tz: this.env.TIMEZONE || 'UTC' },
+        {
+          getRepo: () => this.getRepo(), token: this.env.APP_TOKEN || '', vapid: vapidFrom(this.env), tz: this.env.TIMEZONE || 'UTC',
+          backups: this.env.FILES ? r2Backups(this.env.FILES) : null,
+          features: { ai: !!this.env.AI, files: !!this.env.FILES, email: true },
+        },
         {
           method: request.method,
           path: url.pathname.replace(/^\/api/, '') || '/',
@@ -94,7 +138,7 @@ export class Database extends DurableObject {
           body,
         },
       );
-      return jsonResponse(r.status, r.body);
+      return toResponse(r);
     } catch (err) {
       console.error(err);
       return jsonResponse(500, { error: 'Error del servidor' });
@@ -150,14 +194,63 @@ async function files(request, env, url) {
   }
 }
 
+/** IA: directo a R2 y Workers AI (no necesita MongoDB). */
+async function ai(request, env, url) {
+  let body;
+  try { body = await request.json(); } catch { return jsonResponse(400, { error: 'JSON no válido' }); }
+  const r = await handleAi(
+    { ai: env.AI, store: env.FILES ? r2Store(env.FILES) : null, token: env.APP_TOKEN || '' },
+    { method: request.method, path: url.pathname.slice('/api/ai'.length), auth: request.headers.get('Authorization'), body },
+  );
+  return jsonResponse(r.status, r.body);
+}
+
+/** Digital Asset Links para la app Android (TWA). Variables ANDROID_PACKAGE y ANDROID_SHA256. */
+function assetLinks(env) {
+  const pkg = env.ANDROID_PACKAGE, prints = String(env.ANDROID_SHA256 || '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!pkg || !prints.length) return jsonResponse(404, { error: 'Configura ANDROID_PACKAGE y ANDROID_SHA256' });
+  return new Response(JSON.stringify([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: { namespace: 'android_app', package_name: pkg, sha256_cert_fingerprints: prints },
+  }]), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=3600' } });
+}
+
 const stubOf = (env) => env.DB.get(env.DB.idFromName('main'), env.DB_LOCATION ? { locationHint: env.DB_LOCATION } : undefined);
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname.startsWith('/api/files/')) return files(request, env, url);
-    if (url.pathname.startsWith('/api/') || url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) return stubOf(env).fetch(request);
+    if (url.pathname.startsWith('/api/ai/')) return ai(request, env, url);
+    if (url.pathname === '/.well-known/assetlinks.json') return assetLinks(env);
+    // "Compartir con RetroDark" sin service worker activo: se abre la app (el contenido no se pierde con él activo).
+    if (url.pathname === '/share' && request.method === 'POST') return Response.redirect(`${url.origin}/?share=0`, 303);
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/cal/') || url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
+      return stubOf(env).fetch(request);
+    }
     return env.ASSETS.fetch(request);
+  },
+
+  /** Correo a nota (Cloudflare Email Routing → este Worker). */
+  async email(message, env) {
+    const stub = stubOf(env);
+    const from = String(message.from || '').toLowerCase();
+    const check = await stub.fetch('https://retrodark.internal/internal/email-check', { method: 'POST', body: JSON.stringify({ from }) });
+    if (!(await check.json()).allowed) { message.setReject('Remitente no autorizado en RetroDark'); return; }
+    const mail = await PostalMime.parse(message.raw);
+    const attachments = [];
+    for (const a of (mail.attachments || []).slice(0, MAX_EMAIL_ATTACHMENTS)) {
+      const bytes = typeof a.content === 'string' ? new TextEncoder().encode(a.content) : new Uint8Array(a.content);
+      if (!env.FILES || !bytes.byteLength || bytes.byteLength > MAX_FILE_BYTES) continue;
+      const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      const att = { id, name: (a.filename || 'adjunto').slice(0, 200), type: a.mimeType || 'application/octet-stream', size: bytes.byteLength };
+      await r2Store(env.FILES).put(id, bytes, att);
+      attachments.push(att);
+    }
+    await stub.fetch('https://retrodark.internal/internal/email', {
+      method: 'POST',
+      body: JSON.stringify({ from, subject: mail.subject || '', text: mail.text || htmlToText(mail.html || ''), attachments }),
+    });
   },
 
   /** Cron (cada minuto): recordatorios. */

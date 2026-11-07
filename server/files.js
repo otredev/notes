@@ -44,7 +44,8 @@ export const r2Store = (bucket) => ({
     let cursor;
     do {
       const r = await bucket.list({ cursor, limit: 1000 });
-      for (const o of r.objects) out.push({ id: o.key, createdAt: o.uploaded.getTime() });
+      // Solo adjuntos: las copias de seguridad van en "backups/…" y no se tocan aquí.
+      for (const o of r.objects) if (!o.key.includes('/')) out.push({ id: o.key, createdAt: o.uploaded.getTime() });
       cursor = r.truncated ? r.cursor : undefined;
     } while (cursor);
     return out;

@@ -144,6 +144,33 @@ export function createRepo(db) {
     return old.length;
   }
 
+  /* ---------- Ajustes del servidor (resumen diario, copias, correo) ---------- */
+  async function getServerSettings() {
+    const d = await meta().findOne({ _id: 'settings' });
+    if (!d) return {};
+    const { _id, ...rest } = d;
+    return rest;
+  }
+  const saveServerSettings = (patch) => meta().updateOne({ _id: 'settings' }, { $set: patch }, { upsert: true });
+
+  /** Marca una tarea diaria (resumen, copia) como hecha hoy. Devuelve false si ya se hizo. */
+  async function claimDaily(key, day) {
+    const d = await meta().findOne({ _id: `daily:${key}` });
+    if (d?.day === day) return false;
+    await meta().updateOne({ _id: `daily:${key}` }, { $set: { day, at: Date.now() } }, { upsert: true });
+    return true;
+  }
+
+  /** Todos los mensajes y chats (sin borrados) para el feed, el resumen y el correo. */
+  async function liveData() {
+    const strip = ({ _id, _rev, ...rest }) => ({ id: _id, ...rest });
+    const [messages, chats] = await Promise.all([
+      col('messages').find({ deleted: { $ne: true } }).toArray(),
+      col('chats').find({ deleted: { $ne: true } }).toArray(),
+    ]);
+    return { messages: messages.map(strip).filter((m) => !m.trashedAt), chats: chats.map(strip) };
+  }
+
   async function getChat(id) {
     const c = await col('chats').findOne({ _id: id });
     return c && !c.deleted ? c : null;
@@ -174,6 +201,7 @@ export function createRepo(db) {
   return {
     getResetAt, applyChanges, changesSince, exportAll, wipe, replaceAll,
     saveSub, deleteSub, listSubs, getSub, dueReminders, markReminded, getChat, getMessage, purgeTrash,
+    getServerSettings, saveServerSettings, claimDaily, liveData,
     usedFileIds,
   };
 }
