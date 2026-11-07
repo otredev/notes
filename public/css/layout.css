@@ -2,7 +2,9 @@
 /* ---------- Estructura ---------- */
 #app {
   display: grid; grid-template-columns: 64px minmax(320px, 30%) 1fr;
-  height: 100vh; height: 100dvh; max-width: 1700px; margin: 0 auto;
+  /* Fijo a la ventana visible: en Android con botones de navegación, 100vh/100dvh
+     puede medir más que lo que se ve y la barra inferior quedaba tapada. */
+  position: fixed; inset: 0; max-width: 1700px; margin: 0 auto;
   border-left: 1px solid var(--line); border-right: 1px solid var(--line);
 }
 #rail {
