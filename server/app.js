@@ -3,12 +3,15 @@ import express from 'express';
 import { handleApi } from './api.js';
 import { handleMcp } from './mcp.js';
 import { handleFeed } from './feed.js';
+import { notifyNewMessages } from './notify.js';
 
 const send = (res, r) => (r.raw !== undefined ? res.status(r.status).type(r.type || 'text/plain').send(r.raw) : res.status(r.status).json(r.body));
 
 export function createApp({ repo, token = '', vapid = null, timezone = 'UTC', publicDir }) {
   const app = express();
   app.disable('x-powered-by');
+  // Avisos push de mensajes nuevos en chats compartidos. (En local no hay tiempo real: la app sincroniza cada 30 s.)
+  repo.onWrite?.((out) => { if (out.created?.length) notifyNewMessages(repo, vapid, out).catch((err) => console.error('Avisos', err)); });
 
   // Archivos adjuntos: solo en Cloudflare (R2). El servidor local no los guarda.
   app.use('/api/files', (req, res) => {

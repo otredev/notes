@@ -51,8 +51,10 @@ export async function emailToMessage(repo, { from, subject = '', text = '', atta
   const tags = tagsOf(full);
 
   // Igual que en General: una #etiqueta vinculada a un chat lo manda allí.
-  let chat = chats.find((c) => c.id !== 'general' && !c.deleted && (c.tags || []).some((t) => tags.includes(t)))
-    || chats.find((c) => c.id === settings.email.chat) || { id: 'general', type: 'chat' };
+  // Solo chats donde el propietario puede escribir.
+  const writable = chats.filter((c) => !c.onlyAdmins || c.myRole === 'admin');
+  let chat = writable.find((c) => c.id !== 'general' && (c.tags || []).some((t) => tags.includes(t)))
+    || writable.find((c) => c.id === settings.email.chat) || { id: 'general', type: 'chat' };
   if (kind === 'message' && chat.type === 'list') kind = 'task';
   if (kind === 'message' && chat.type === 'notes') kind = 'note';
 
@@ -64,9 +66,6 @@ export async function emailToMessage(repo, { from, subject = '', text = '', atta
     triaged: chat.id !== 'general' || kind !== 'message', createdAt: now, remindAt: null,
     ...(attachments.length ? { attachments } : {}),
   };
-  await repo.applyChanges([{ store: 'messages', id, updatedAt: now, doc }]);
-  // Sube el chat en la lista.
-  const c = chats.find((x) => x.id === chat.id);
-  if (c) { const { id: cid, ...rest } = c; await repo.applyChanges([{ store: 'chats', id: cid, updatedAt: Math.max(now, (c.updatedAt || 0) + 1), doc: rest }]); }
+  await repo.applyChanges([{ store: 'messages', id, updatedAt: now, doc }], 'owner');
   return { id, chatId: chat.id };
 }

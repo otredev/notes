@@ -77,6 +77,10 @@ export async function storeForUpload(att, blob) {
 }
 
 /* ---------- Subida (la llama la sincronización) ---------- */
+let onFull = () => {};
+/** storage.js se registra aquí para mostrar el aviso de espacio lleno. */
+export const setStorageFullHandler = (fn) => { onFull = fn; };
+const storageFull = (st) => onFull(st);
 export async function uploadPending() {
   const ids = await idb.keys('uploads');
   for (const id of ids) {
@@ -90,6 +94,12 @@ export async function uploadPending() {
     if (res.status === 401) throw Object.assign(new Error('Clave de acceso incorrecta'), { auth: true });
     if (res.status === 413) { await idb.del('uploads', id); continue; } // demasiado grande: no se reintenta
     if (res.status === 503) return; // servidor sin almacenamiento de archivos (local): se quedan aquí y se reintenta luego
+    if (res.status === 507) {
+      // Espacio en la nube casi lleno: el archivo se queda en este dispositivo y se avisa.
+      const data = await res.json().catch(() => ({}));
+      storageFull(data.storage);
+      return;
+    }
     if (!res.ok) throw new Error(`No se pudo subir un archivo (${res.status})`);
     await idb.del('uploads', id);
   }

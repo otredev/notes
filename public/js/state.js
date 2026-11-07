@@ -14,6 +14,8 @@ export const S = {
   taskCat: 'all', showDone: false, installEvt: null,
   agendaMonth: null, agendaDay: null, // Tareas → Agenda
   server: null, // ajustes y funciones del servidor (GET /api/settings)
+  me: null,     // quién soy { id, name, handle, color, role }
+  people: [],   // personas de RetroDark (para chats compartidos y menciones)
 };
 
 function readLS(k) { try { return JSON.parse(localStorage.getItem(k)) || {}; } catch { return {}; } }

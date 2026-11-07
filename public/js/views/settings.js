@@ -4,6 +4,8 @@ import { ic } from '../icons.js';
 import { S, settings } from '../state.js';
 import { getStatus } from '../data/sync.js';
 import { pushState } from '../push.js';
+import { storageBarsHtml } from '../storage.js';
+import { personDot, isOwnerUser, multiUser } from './account.js';
 
 const PUSH_TEXT = {
   on: ['cloudOk', 'ok', 'Activadas en este dispositivo. Te avisaremos a la hora de cada recordatorio.'],
@@ -46,8 +48,10 @@ export function syncBoxHtml() {
   return `<div class="sync-state ${good ? 'ok' : 'bad'}">${ic(good ? 'cloudOk' : 'cloudOff')}
       <span class="grow">${esc(SYNC_LABELS[st.state] || '')}${detail ? `<br><small class="muted">${esc(detail)}</small>` : ''}</span></div>
     <div class="btn-row"><button class="btn outline" data-act="sync-now">${ic('sync', 'tiny')} Sincronizar ahora</button></div>
-    <label class="field token-field"><span>Clave de acceso (APP_TOKEN del servidor)</span>
-      <input type="password" id="set-token" value="${esc(settings.token)}" placeholder="Vacío si el servidor no usa clave" autocomplete="off"></label>`;
+    ${settings.token.startsWith('rd1.')
+      ? `<p class="muted small" style="margin:10px 0 0">Conectado con la cuenta de <b>${esc(S.me?.name || '')}</b>. Para cambiar de cuenta, cierra sesión en Ajustes → Cuenta.</p>`
+      : `<label class="field token-field"><span>Clave de acceso (APP_TOKEN del servidor)</span>
+      <input type="password" id="set-token" value="${esc(settings.token)}" placeholder="Vacío si el servidor no usa clave" autocomplete="off"></label>`}`;
 }
 
 /** Actualiza solo el bloque de sincronización (sin tocar lo que el usuario esté escribiendo). */
@@ -71,8 +75,13 @@ export function mcpBoxHtml() {
 
 export function settingsPaneHtml() {
   const themes = [['system', 'Sistema'], ['light', 'Claro'], ['dark', 'Oscuro']];
+  const me = S.me || { name: 'Yo', handle: 'yo', role: 'owner' };
   return `<header class="pane-head"><h1>Ajustes</h1></header>
   <div class="list">
+    <div class="set-group links">
+      <button class="set-link" data-act="sub" data-v="account">${personDot(me)}<span class="grow"><b>${esc(me.name)}</b><br><small class="muted">@${esc(me.handle || '')} · ${isOwnerUser() ? 'Propietario' : 'Miembro'}</small></span><span class="muted">›</span></button>
+      ${isOwnerUser() && multiUser() ? `<button class="set-link" data-act="sub" data-v="people">👥<span class="grow">Personas<br><small class="muted">Invitar, dispositivos y acceso</small></span><span class="muted">›</span></button>` : ''}
+    </div>
     <div class="sec-title">Apariencia</div>
     <div class="set-group"><div class="seg">${themes.map(([v, l]) => `<button class="${settings.theme === v ? 'on' : ''}" data-act="theme" data-v="${v}">${l}</button>`).join('')}</div></div>
     <div class="sec-title">Escritura</div>
@@ -84,22 +93,24 @@ export function settingsPaneHtml() {
     <div class="set-group" id="push-box"><p class="muted small">Comprobando…</p></div>
     <div class="sec-title">Sincronización</div>
     <div class="set-group" id="sync-box">${syncBoxHtml()}</div>
-    <div class="sec-title">Asistente de IA (MCP)</div>
-    <div class="set-group" id="mcp-box">${mcpBoxHtml()}</div>
+    ${isOwnerUser() ? `<div class="sec-title">Asistente de IA (MCP)</div>
+    <div class="set-group" id="mcp-box">${mcpBoxHtml()}</div>` : ''}
+    <div class="sec-title" id="storage-title">Almacenamiento en la nube</div>
+    <div class="set-group" id="storage-box">${storageBarsHtml()}</div>
     <div class="sec-title">Tus datos</div>
     <div class="set-group">
       <p class="muted small" style="margin:0">${S.messages.length} mensajes en ${S.chats.length} chats${S.trash.length ? ` · ${S.trash.length} en la papelera` : ''}.</p>
       <div class="btn-row">
         <button class="btn outline" data-act="export">Exportar copia</button>
-        <label class="btn outline">Importar<input type="file" id="import-file" accept="application/json,.json" hidden></label>
-        <button class="btn danger ghost" data-act="wipe">Borrar todo</button>
+        ${isOwnerUser() ? `<label class="btn outline">Importar<input type="file" id="import-file" accept="application/json,.json" hidden></label>
+        <button class="btn danger ghost" data-act="wipe">Borrar todo</button>` : ''}
       </div>
     </div>
     <div class="sec-title">Más</div>
     <div class="set-group links">
       <button class="set-link" data-act="sub" data-v="docs">${ic('book')}<span class="grow">Documentación<br><small class="muted">Atajos, formato, recordatorios, gestos y reglas del bloque HTML</small></span><span class="muted">›</span></button>
       <button class="set-link" data-act="sub" data-v="auto">⚙️<span class="grow">Automatizaciones<br><small class="muted">Resumen diario, calendario suscrito y correo a nota</small></span><span class="muted">›</span></button>
-      <button class="set-link" data-act="sub" data-v="backups">${ic('archive')}<span class="grow">Copias de seguridad<br><small class="muted">Automáticas cada día en la nube, descargar y restaurar</small></span><span class="muted">›</span></button>
+      ${isOwnerUser() ? `<button class="set-link" data-act="sub" data-v="backups">${ic('archive')}<span class="grow">Copias de seguridad<br><small class="muted">Automáticas cada día en la nube, descargar y restaurar</small></span><span class="muted">›</span></button>` : ''}
       <button class="set-link" data-act="sub" data-v="privacy">🔒<span class="grow">Privacidad<br><small class="muted">PIN y huella para los chats bloqueados</small></span><span class="muted">›</span></button>
       <button class="set-link" data-act="sub" data-v="trash">${ic('trash')}<span class="grow">Papelera<br><small class="muted">${S.trash.length ? `${S.trash.length} mensaje${S.trash.length > 1 ? 's' : ''} · ` : ''}se vacía sola a los 30 días</small></span><span class="muted">›</span></button>
     </div>

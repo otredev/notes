@@ -35,7 +35,13 @@
     "TIMEZONE": "America/New_York",
     // App Android (TWA): nombre del paquete y huella SHA-256 del certificado (separadas por comas)
     "ANDROID_PACKAGE": "",
-    "ANDROID_SHA256": ""
+    "ANDROID_SHA256": "",
+    // Límite gratis de R2 que vigila la app: a partir del 90 % rechaza subidas nuevas (no te cobra).
+    "STORAGE_LIMIT_GB": "10",
+    "R2_CLASS_A_LIMIT": "1000000",
+    "R2_CLASS_B_LIMIT": "10000000",
+    "STORAGE_WARN_PCT": "75",
+    "STORAGE_STOP_PCT": "90"
   },
 
   // Cada minuto: recordatorios; y a su hora, el resumen del día y la copia de seguridad diaria.

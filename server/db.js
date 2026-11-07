@@ -16,4 +16,5 @@ export async function ensureIndexes(db) {
   await Promise.all(COLLECTIONS.map((name) => db.collection(name).createIndex({ _rev: 1 })));
   await db.collection('messages').createIndex({ chatId: 1 });
   await db.collection('messages').createIndex({ remindAt: 1 }, { sparse: true });
+  await db.collection('sessions').createIndex({ userId: 1 });
 }

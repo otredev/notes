@@ -7,6 +7,7 @@ import { chatById, catById, lastOf, pendingOf, summary } from '../data/store.js'
 import { getStatus } from '../data/sync.js';
 import { avatar, catChip, empty } from '../ui/parts.js';
 import { isLocked, hiddenChatIds } from '../lock.js';
+import { isMine, nameOf } from '../people.js';
 
 function groupChipsHtml() {
   const chips = [['all', 'Todos'], ['pinned', 'Fijados'], ...[...S.groups].sort(byOrder).map((g) => [g.id, g.name])];
@@ -62,11 +63,12 @@ function chatList() {
 
 export function chatRow(c) {
   const last = lastOf(c.id), pending = pendingOf(c.id);
-  const prev = isLocked(c) ? '<i>🔒 Chat bloqueado</i>' : last ? `${esc(summary(last))}` : `<i>${esc(c.desc || TYPES[c.type].hint)}</i>`;
+  const who = c.shared && last && !isMine(last) ? `${nameOf(last.authorId)}: ` : '';
+  const prev = isLocked(c) ? '<i>🔒 Chat bloqueado</i>' : last ? `${esc(who + summary(last))}` : `<i>${esc(c.desc || TYPES[c.type].hint)}</i>`;
   return `<div class="chat-row ${S.active === c.id ? 'on' : ''}" data-act="open-chat" data-id="${c.id}" role="button" tabindex="0">
     ${avatar(c)}
     <div class="cr-body">
-      <div class="cr-top"><span class="cr-name">${esc(c.name)}</span><span class="cr-time ${pending ? 'hl' : ''}">${last ? shortWhen(last.createdAt) : ''}</span></div>
+      <div class="cr-top"><span class="cr-name">${c.shared ? '<span class="shared-ic" title="Compartido">👥</span> ' : ''}${esc(c.name)}</span><span class="cr-time ${pending ? 'hl' : ''}">${last ? shortWhen(last.createdAt) : ''}</span></div>
       <div class="cr-bot"><span class="cr-prev">${prev}</span>${c.locked ? `<span class="lock-ic" title="Bloqueado">${isLocked(c) ? '🔒' : '🔓'}</span>` : ''}${c.pinned && c.id !== 'general' ? ic('pin', 'tiny') : ''}${pending ? `<b class="badge" title="Tareas pendientes">${pending}</b>` : ''}</div>
     </div></div>`;
 }

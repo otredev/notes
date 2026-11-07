@@ -14,6 +14,22 @@ import { runAi } from './ai.js';
 import { requireUnlock, lockNow, pinSetupSheet, enableBiometric, disableBiometric, biometricSupported } from './lock.js';
 import { loadServer, loadBackups } from './views/server.js';
 import { localTz } from './recurrence.js';
+import { isShared, membersOf, myId } from './people.js';
+import { personDot, saveProfile, createDeviceLink, revokeSession, logout, inviteLink, loginLinkFor, setDisabled } from './views/account.js';
+import { restartLive } from './live.js';
+import { norm } from './utils.js';
+
+/** Sugerencias de @menciones mientras escribes en un chat compartido. */
+function updateMentionBar(ta) {
+  const bar = $('#mention-bar'), chat = chatById(S.active);
+  if (!bar) return;
+  const m = ta.value.slice(0, ta.selectionStart).match(/(?:^|\s)@([\p{L}0-9_]{0,24})$/u);
+  if (!m || !isShared(chat)) { bar.hidden = true; return; }
+  const q = norm(m[1]);
+  const list = membersOf(chat).filter((p) => p.id !== myId() && p.handle && (p.handle.startsWith(q) || norm(p.name).startsWith(q)));
+  bar.hidden = !list.length;
+  bar.innerHTML = list.map((p) => `<button class="chip" data-act="mention-pick" data-v="${esc(p.handle)}">${personDot(p)} ${esc(p.name)} <small class="muted">@${esc(p.handle)}</small></button>`).join('');
+}
 import { closeSheet, isSheetOpen, confirmSheet, pickSheet, toast, copyText } from './ui/dom.js';
 import { avatar } from './ui/parts.js';
 import { refreshAll } from './render.js';
@@ -166,6 +182,34 @@ const ACTIONS = {
   'new-tpl': () => templateSheet(null),
   'edit-tpl': (el) => templateSheet(el.dataset.id),
 
+  /* ---------- Menciones ---------- */
+  'mention-pick': (el) => {
+    const ta = $('#composer-input');
+    const pos = ta.selectionStart, before = ta.value.slice(0, pos);
+    const start = before.search(/@[\p{L}0-9_]*$/u);
+    if (start < 0) return;
+    ta.setRangeText(`@${el.dataset.v} `, start, pos, 'end');
+    ta.focus();
+    $('#mention-bar').hidden = true;
+    autosize(ta);
+    updateSendBtn();
+  },
+
+  /* ---------- Cuenta y personas ---------- */
+  'acc-color': (el) => { document.querySelectorAll('[data-act=acc-color]').forEach((x) => x.classList.toggle('on', x === el)); },
+  'acc-save': () => saveProfile().then((ok) => ok && renderPane(true)),
+  'acc-link': () => createDeviceLink().then((ok) => { if (ok) { toast('Enlace copiado: ábrelo en el otro dispositivo (30 min)'); renderPane(); } }),
+  'copy-input': (el) => copyText($(`#${el.dataset.v}`)?.value || ''),
+  'sess-revoke': (el) => revokeSession(el.dataset.v).then(() => renderPane()),
+  logout: () => logout(),
+  'ppl-invite': () => inviteLink().then((url) => { if (url) { toast('Enlace de invitación copiado (7 días, un solo uso)'); renderPane(); } }),
+  'ppl-link': (el) => loginLinkFor(el.dataset.v).then(() => { toast('Enlace de acceso copiado (30 min)'); renderPane(); }),
+  'ppl-disable': (el) => {
+    const on = el.dataset.on === '1';
+    const go = () => setDisabled(el.dataset.v, on).then(() => renderPane());
+    if (on) confirmSheet('Esa persona no podrá entrar desde ningún dispositivo hasta que la actives otra vez. Sus mensajes se quedan.', 'Desactivar', go); else go();
+  },
+
   /* ---------- IA ---------- */
   'ai-transcribe': (el) => runAi('transcribe', el.dataset.msg, el.dataset.att),
   'ai-ocr': (el) => runAi('ocr', el.dataset.msg, el.dataset.att),
@@ -317,6 +361,13 @@ function bindLongPress() {
 export function bindEvents() {
   bindLongPress();
   window.addEventListener('message', onEmbedMessage);
+  // Ir a una sección desde una ventana (p. ej. "Ver en Ajustes" del aviso de espacio).
+  document.addEventListener('retrodark:goto', (e) => {
+    S.nav = e.detail.nav; S.sub = e.detail.sub || null;
+    renderNav(); renderPane(true);
+    if (isMobile()) closeChat();
+    if (e.detail.anchor) requestAnimationFrame(() => document.getElementById(e.detail.anchor)?.scrollIntoView({ block: 'center' }));
+  });
 
   document.addEventListener('click', (e) => {
     if (e.target.closest('a[href], .ap-seek, video, summary, .att-ai-text')) return;
@@ -336,7 +387,7 @@ export function bindEvents() {
     const t = e.target;
     if (t.id === 'search') { S.search = t.value; refreshChats(); }
     else if (t.id === 'chat-search-input') { S.chatSearch = t.value; renderMessages(true); }
-    else if (t.id === 'composer-input') { autosize(t); updateSendBtn(); }
+    else if (t.id === 'composer-input') { autosize(t); updateSendBtn(); updateMentionBar(t); }
     else if (t.classList.contains('ap-seek')) seekAudio(t.dataset.att, Number(t.value) / 1000);
   });
 
@@ -415,7 +466,7 @@ export function bindEvents() {
     }
     if (t.id === 'srv-backups-on') saveServer({ backups: { enabled: t.checked } }, t.checked ? 'Copias diarias activadas' : 'Copias diarias desactivadas');
     if (t.id === 'set-token') {
-      settings.token = t.value.trim(); saveSettings(); storeToken(); t.blur(); syncNow();
+      settings.token = t.value.trim(); saveSettings(); storeToken(); t.blur(); syncNow().then(() => { loadServer(); restartLive(); });
       const box = $('#mcp-box'); if (box) box.innerHTML = mcpBoxHtml();
     }
   });

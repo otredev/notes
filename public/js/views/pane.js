@@ -8,10 +8,11 @@ import { settingsPaneHtml, updatePushBox } from './settings.js';
 import { docsPaneHtml } from './docs.js';
 import { trashPaneHtml } from './trash.js';
 import { autoPaneHtml, backupsPaneHtml, privacyPaneHtml, loadServer, loadBackups, fillFeedUrl } from './server.js';
+import { accountPaneHtml, peoplePaneHtml, loadAccount } from './account.js';
 
 const VIEWS = { chats: chatsPaneHtml, tasks: tasksPaneHtml, org: orgPaneHtml, settings: settingsPaneHtml };
 /** Vistas dentro de Ajustes. */
-const SUBS = { docs: docsPaneHtml, trash: trashPaneHtml, auto: autoPaneHtml, backups: backupsPaneHtml, privacy: privacyPaneHtml };
+const SUBS = { docs: docsPaneHtml, trash: trashPaneHtml, auto: autoPaneHtml, backups: backupsPaneHtml, privacy: privacyPaneHtml, account: accountPaneHtml, people: peoplePaneHtml };
 let loadingSub = null;
 
 /** Redibuja el panel. Sin `force`, la lista de chats se actualiza sin perder el foco del buscador. */
@@ -34,9 +35,9 @@ export function renderPane(force = false) {
   if (S.nav === 'settings' && !sub) updatePushBox();
   if (sub === 'auto') fillFeedUrl();
   // Las vistas del servidor se cargan al abrirlas (y se redibujan al llegar los datos).
-  if ((sub === 'auto' || sub === 'backups') && force && loadingSub !== sub) {
+  if (['auto', 'backups', 'account', 'people'].includes(sub) && force && loadingSub !== sub) {
     loadingSub = sub;
-    Promise.all([loadServer(), sub === 'backups' ? loadBackups() : null]).finally(() => {
+    Promise.all([loadServer(), sub === 'backups' ? loadBackups() : null, sub === 'account' || sub === 'people' ? loadAccount() : null]).finally(() => {
       loadingSub = null;
       if (S.sub === sub && S.nav === 'settings') renderPane();
     });

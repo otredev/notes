@@ -108,6 +108,28 @@ export function docsPaneHtml() {
       ['Copias de seguridad', 'Una al día en la nube (se guardan 30); descárgalas o restáuralas'],
     ])}
 
+    <div class="sec-title">Personas y chats compartidos</div>
+    ${table([
+      ['Ajustes → Personas → Invitar', 'El propietario crea un enlace (7 días, un solo uso). Quien lo abre elige su nombre y entra con sus propias notas'],
+      ['Información del chat → Añadir persona', 'Comparte ese chat. Quien entra ve todo su historial'],
+      ['Admin', 'Cambia nombre e icono, añade o saca personas y decide quién es admin'],
+      ['Solo los administradores pueden enviar', 'Los demás pueden leer, marcar casillas y votar, pero no escribir (lo comprueba el servidor)'],
+      ['Mensajes de otros', 'Solo los cambia quien los escribió. Tú puedes marcarlos como hechos, destacarlos o ponerles tu categoría'],
+      ['<code>@usuario</code>', 'Menciona a alguien del chat: le llega un aviso aunque lo tenga silenciado'],
+      ['Encuestas', 'Cada persona tiene su voto; en el mensaje ves quién votó qué'],
+      ['Silenciar avisos', 'En la información del chat: sin notificaciones de mensajes nuevos (las menciones sí llegan)'],
+      ['Ajustes → Cuenta → Vincular otro dispositivo', 'Enlace de 30 minutos para usar tu cuenta en otro móvil u ordenador'],
+      ['Personal', 'Fijar, grupo, archivar, bloquear, destacar y categorías son solo tuyos aunque el chat sea compartido'],
+      ['En tiempo real', 'Los cambios de los demás llegan al momento (con Cloudflare); si no, cada 30 s'],
+    ])}
+
+    <div class="sec-title">Espacio en la nube</div>
+    ${table([
+      ['Ajustes → Almacenamiento', 'Barras con el espacio usado y las operaciones del mes en Cloudflare R2'],
+      ['Al 75 %', 'Aviso al abrir la app'],
+      ['Al 90 %', 'No se suben archivos ni copias nuevas (para que no te cobren) y sale una ventana avisándote. Lo que adjuntes se queda en el dispositivo'],
+    ])}
+
     <div class="sec-title">Privacidad</div>
     ${table([
       ['Información del chat → Bloquear', 'Pide PIN (o huella / Face ID) para verlo'],

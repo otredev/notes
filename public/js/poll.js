@@ -10,14 +10,30 @@ import { fmt } from './text.js';
 import { chatById, msgById, put, touch } from './data/store.js';
 import { sheet, closeSheet, toast } from './ui/dom.js';
 import { refreshAll } from './render.js';
+import { myId, nameOf } from './people.js';
 
-export const VOTER = 'me';
+/** Cada persona vota con su id (sin cuentas: "owner"). El servidor solo acepta el voto propio. */
+const voter = () => myId();
 const MAX_OPTIONS = 12;
+
+/** Votos de la encuesta. Antes de las cuentas, el voto del propietario se guardaba como "me". */
+export function votesOf(p) {
+  const v = { ...(p.votes || {}) };
+  if (v.me) { if (!v.owner) v.owner = v.me; delete v.me; }
+  return v;
+}
+
+/** Quién votó cada opción (nombres). */
+export function pollVoters(p) {
+  const out = Object.fromEntries(p.options.map((o) => [o.id, []]));
+  for (const [uid, ids] of Object.entries(votesOf(p))) for (const id of ids || []) if (out[id]) out[id].push(nameOf(uid));
+  return out;
+}
 
 export function pollCounts(p) {
   const counts = Object.fromEntries(p.options.map((o) => [o.id, 0]));
   let voters = 0;
-  for (const ids of Object.values(p.votes || {})) {
+  for (const ids of Object.values(votesOf(p))) {
     const valid = (ids || []).filter((id) => id in counts);
     if (valid.length) voters++;
     valid.forEach((id) => { counts[id]++; });
@@ -28,7 +44,7 @@ export function pollCounts(p) {
 export function pollHtml(m) {
   const p = m.poll;
   const { counts, voters } = pollCounts(p);
-  const mine = new Set(p.votes?.[VOTER] || []);
+  const mine = new Set(votesOf(p)[voter()] || []);
   const max = Math.max(0, ...Object.values(counts));
   const opts = p.options.map((o) => {
     const n = counts[o.id], pct = voters ? Math.round((n / voters) * 100) : 0;
@@ -45,12 +61,12 @@ export function pollHtml(m) {
 export async function vote(msgId, optId) {
   const m = msgById(msgId);
   if (!m?.poll || m.poll.closed || !m.poll.options.some((o) => o.id === optId)) return;
-  const votes = { ...(m.poll.votes || {}) };
-  const cur = new Set(votes[VOTER] || []);
+  const votes = votesOf(m.poll);
+  const cur = new Set(votes[voter()] || []);
   if (m.poll.multi) { if (cur.has(optId)) cur.delete(optId); else cur.add(optId); }
   else if (cur.has(optId)) cur.clear();
   else { cur.clear(); cur.add(optId); }
-  if (cur.size) votes[VOTER] = [...cur]; else delete votes[VOTER];
+  if (cur.size) votes[voter()] = [...cur]; else delete votes[voter()];
   m.poll = { ...m.poll, votes };
   await put('messages', m);
   navigator.vibrate?.(8);
@@ -105,7 +121,7 @@ export function pollSheet(question = '') {
           const now = Date.now();
           const msg = {
             id: uid(), chatId: chat.id, text: q, kind: 'message', done: false, doneAt: null, tags: [], categoryId: null, due: null,
-            starred: false, pinned: false, from: 'me', triaged: true, createdAt: now, remindAt: null,
+            starred: false, pinned: false, from: 'me', triaged: true, createdAt: now, remindAt: null, authorId: myId(),
             poll: { question: q, options, multi: $('#poll-multi', sh).checked, closed: false, votes: {} },
           };
           await put('messages', msg);

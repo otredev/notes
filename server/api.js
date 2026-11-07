@@ -2,36 +2,39 @@
  * API de RetroDark, independiente del servidor.
  * La usan tanto el Worker de Cloudflare (worker/index.js) como Express (server/app.js).
  *
- *   GET  /api/health   → comprobar que responde
- *   POST /api/sync     → subir cambios y recibir los del servidor
- *   GET  /api/export   → copia completa
- *   POST /api/import   → reemplazar todo con una copia
- *   POST /api/reset    → borrar todo
- *   GET  /api/push/key           → clave pública VAPID
- *   POST /api/push/subscribe     → guardar la suscripción push de este dispositivo
- *   POST /api/push/unsubscribe   → quitarla
- *   POST /api/push/test          → enviar una notificación de prueba
- *   POST /api/push/action        → botones de la notificación: { id, action: 'done' | 'snooze', tz }
- *   GET|POST /api/settings       → ajustes del servidor (resumen diario, copias, correo)
- *   POST /api/summary/test       → enviar el resumen del día ahora
- *   GET|POST /api/backups, GET /api/backups/<nombre> → copias de seguridad en R2
+ * Sin sesión:  GET /health · POST /auth/join (unirse con invitación) · POST /auth/redeem (vincular dispositivo)
+ * Con sesión (APP_TOKEN = propietario, o token de sesión de cada persona):
+ *   POST /sync                    subir cambios y recibir los del servidor (solo lo que puedes ver)
+ *   GET|POST /me, GET /people     tu perfil y las personas de RetroDark
+ *   POST /auth/invite             (propietario) enlace para que alguien se una
+ *   POST /auth/link               enlace para usar tu cuenta en otro dispositivo
+ *   GET /sessions, POST /sessions/revoke, POST /auth/logout
+ *   GET /users, POST /users/disable          (propietario) personas y acceso
+ *   POST /chats/members           añadir / sacar / cambiar rol / salir de un chat
+ *   GET /export · POST /import · POST /reset (estas dos, solo el propietario)
+ *   GET /push/key · POST /push/subscribe | unsubscribe | test | action
+ *   GET|POST /settings · POST /summary/test · GET /feed · GET /storage
+ *   GET|POST /backups, GET /backups/<nombre>   (propietario)
  */
-
 import { isValidSubscription } from './webpush.js';
 import { pushToAll, vapidReady } from './reminders.js';
 import { advance } from '../public/js/recurrence.js';
-import { withDefaults, cleanPatch } from './settings.js';
+import { feedKey } from '../public/js/calendar.js';
+import { withDefaults, cleanPatch, validTz, USER_KEYS, GLOBAL_KEYS } from './settings.js';
 import { sendSummary } from './daily.js';
 import { handleBackups } from './backups.js';
+import { OWNER, authenticate, identify, signToken, randomId, cleanProfile, suggestHandle, COLORS } from './accounts.js';
+import { storageState } from './storage.js';
 
 /** Posponer desde la notificación. */
 export const SNOOZE_MS = 10 * 60 * 1000;
-
-import { validTz } from './settings.js';
+const INVITE_DAYS = 7;
+const LINK_MINUTES = 30;
 
 const json = (status, body) => ({ status, body });
+const fail = (err) => json(err.status || 400, { error: err.message });
 
-/** Compara la clave en tiempo constante (sin depender de node:crypto). */
+/** Compara la clave en tiempo constante. Solo acepta APP_TOKEN (servidor MCP en modo propietario). */
 export function tokenOk(token, header) {
   if (!token) return true;
   const expected = `Bearer ${token}`;
@@ -41,67 +44,176 @@ export function tokenOk(token, header) {
   return diff === 0;
 }
 
-/**
- * @param {{ getRepo: () => Promise<object>, token: string, vapid?: object }} ctx
- *   getRepo: devuelve el repositorio (conecta a MongoDB si hace falta) · token: APP_TOKEN ('' = sin clave)
- *   vapid: { publicKey, privateKey, subject } para las notificaciones push
- * @param {{ method: string, path: string, auth?: string, body?: any, userAgent?: string }} req  path sin el prefijo /api
- * @returns {Promise<{ status: number, body: object }>}
- */
-export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC', backups = null, features = {} }, { method, path, auth, body, userAgent }) {
-  if (method === 'GET' && path === '/health') return json(200, { ok: true, auth: !!token });
-  if (!tokenOk(token, auth)) return json(401, { error: 'unauthorized' });
+export { identify };
 
-  if (path === '/backups' || path.startsWith('/backups/')) return handleBackups({ getRepo, store: backups }, { method, path });
+/** Ajustes que ve un usuario: los suyos + (si es el propietario) los globales. */
+async function settingsFor(repo, u, ctx) {
+  const global = withDefaults(await repo.getServerSettings(), ctx.tz);
+  const mine = await repo.getUserPrefs(u);
+  const tz = validTz(mine.tz) || (u === OWNER ? global.tz : ctx.tz);
+  const out = {
+    summary: { ...global.summary, ...(u === OWNER ? {} : { enabled: false }), ...(mine.summary || {}) },
+    tz,
+    isOwner: u === OWNER,
+    features: { push: vapidReady(ctx.vapid), backups: !!ctx.backups && u === OWNER, multiUser: !!ctx.token, ...ctx.features },
+    storage: ctx.storageLimits ? storageState(await repo.getStorage(), ctx.storageLimits) : { available: false },
+  };
+  if (u === OWNER) Object.assign(out, { backups: global.backups, email: global.email });
+  return out;
+}
+
+async function profile(repo, u) {
+  const people = (await repo.activeUsers()).map(({ disabled, ...p }) => p);
+  return { me: await repo.getUser(u), people };
+}
+
+/**
+ * @param {{ getRepo: () => Promise<object>, token: string, vapid?: object, tz?: string, backups?: object, features?: object, storageLimits?: object }} ctx
+ * @param {{ method: string, path: string, auth?: string, body?: any, userAgent?: string }} req  path sin el prefijo /api
+ * @returns {Promise<{ status: number, body?: object, raw?: string, type?: string }>}
+ */
+export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
+  const { getRepo, token, vapid } = ctx;
+  const defaultTz = ctx.tz || 'UTC';
+  if (method === 'GET' && path === '/health') return json(200, { ok: true, auth: !!token });
+
+  /* ---------- Sin sesión: unirse y vincular dispositivos ---------- */
+  if (method === 'POST' && (path === '/auth/join' || path === '/auth/redeem')) {
+    if (!token) return json(400, { error: 'El servidor no tiene APP_TOKEN: las cuentas están desactivadas' });
+    const repo = await getRepo();
+    const code = String(body?.code || '');
+    if (path === '/auth/join') {
+      let p;
+      try { p = cleanProfile({ name: body?.name, handle: body?.handle || suggestHandle(body?.name || '') }); } catch (err) { return fail(err); }
+      if (await repo.handleTaken(p.handle)) return json(409, { error: `El usuario @${p.handle} ya existe; elige otro` });
+      const inv = await repo.takeInvite(code, 'join');
+      if (!inv) return json(410, { error: 'La invitación no es válida o ya se usó' });
+      const uid = randomId(10), sid = randomId(16);
+      const color = COLORS[(await repo.listUsers()).length % COLORS.length];
+      const me = await repo.createUser(uid, { ...p, color, invitedBy: inv.createdBy });
+      await repo.createSession(uid, sid, userAgent);
+      if (inv.chatId) await repo.updateMembers(inv.createdBy, { chatId: inv.chatId, add: [uid] }).catch(() => {});
+      return json(200, { token: await signToken(token, uid, sid), me });
+    }
+    const inv = await repo.takeInvite(code, 'login');
+    if (!inv) return json(410, { error: 'El enlace no es válido, caducó o ya se usó' });
+    const me = await repo.getUser(inv.userId);
+    if (!me || me.disabled) return json(403, { error: 'Esa cuenta está desactivada' });
+    const sid = randomId(16);
+    await repo.createSession(inv.userId, sid, userAgent);
+    return json(200, { token: await signToken(token, inv.userId, sid), me });
+  }
+
+  /* ---------- A partir de aquí, hace falta sesión ---------- */
+  const repo0 = token ? await getRepo() : null;
+  const who = await authenticate(token, auth, repo0);
+  if (!who) return json(401, { error: 'unauthorized' });
+  const u = who.id;
+  const isOwner = u === OWNER;
+  const ownerOnly = () => json(403, { error: 'Solo el propietario puede hacer esto' });
+
+  if (path === '/backups' || path.startsWith('/backups/')) {
+    if (!isOwner) return ownerOnly();
+    return handleBackups({ getRepo, store: ctx.backups, storage: ctx.storageLimits }, { method, path });
+  }
 
   const route = `${method} ${path}`;
+  const repo = await getRepo();
   switch (route) {
     case 'POST /sync': {
       const { since = 0, resetAt = null, changes = [] } = body || {};
       if (!Array.isArray(changes)) return json(400, { error: 'changes debe ser una lista' });
-      const repo = await getRepo();
       const current = await repo.getResetAt();
       // Los datos se borraron o importaron desde otro dispositivo: el cliente debe empezar de cero.
       if (resetAt && resetAt !== current) return json(200, { reset: true, resetAt: current });
-      await repo.applyChanges(changes);
-      return json(200, { resetAt: current, ...(await repo.changesSince(Number(since) || 0)) });
-    }
-    case 'GET /export': {
-      const repo = await getRepo();
-      return json(200, { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), ...(await repo.exportAll()) });
-    }
-    case 'POST /import': {
-      if (!body || body.app !== 'retrodark' || !Array.isArray(body.messages)) {
-        return json(400, { error: 'El archivo no es una copia de RetroDark' });
-      }
-      const repo = await getRepo();
-      return json(200, { resetAt: await repo.replaceAll(body) });
-    }
-    case 'POST /reset': {
-      const repo = await getRepo();
-      return json(200, { resetAt: await repo.wipe() });
+      const res = await repo.applyChanges(changes, u);
+      const out = await repo.changesSince(Number(since) || 0, u);
+      for (const f of res.forced) out.changes[f.store].push(f.doc);
+      return json(200, { resetAt: current, ...out, rejected: res.rejected, ...(await profile(repo, u)) });
     }
 
+    /* ---------- Perfil y personas ---------- */
+    case 'GET /me':
+      return json(200, { ...(await profile(repo, u)), isOwner, multiUser: !!token });
+    case 'POST /me': {
+      let p;
+      try { p = cleanProfile(body || {}); } catch (err) { return fail(err); }
+      if (p.handle && await repo.handleTaken(p.handle, u)) return json(409, { error: `El usuario @${p.handle} ya existe` });
+      await repo.updateUser(u, p);
+      return json(200, { ...(await profile(repo, u)), isOwner, multiUser: !!token });
+    }
+    case 'GET /people':
+      return json(200, await profile(repo, u));
+
+    /* ---------- Invitaciones, dispositivos y sesiones ---------- */
+    case 'POST /auth/invite': {
+      if (!token) return json(400, { error: 'Configura APP_TOKEN en el servidor para usar cuentas' });
+      if (!isOwner) return ownerOnly();
+      const code = randomId(20);
+      await repo.createInvite({ code, type: 'join', createdBy: u, chatId: typeof body?.chatId === 'string' ? body.chatId : null, expiresAt: Date.now() + INVITE_DAYS * 864e5 });
+      return json(200, { code, expiresAt: Date.now() + INVITE_DAYS * 864e5 });
+    }
+    case 'POST /auth/link': {
+      if (!token) return json(400, { error: 'Configura APP_TOKEN en el servidor para usar cuentas' });
+      const target = isOwner && typeof body?.userId === 'string' ? body.userId : u;
+      if (target === OWNER) return json(400, { error: 'El propietario entra con APP_TOKEN (Ajustes → Sincronización)' });
+      if (!(await repo.getUser(target))) return json(404, { error: 'No existe esa persona' });
+      const code = randomId(20);
+      await repo.createInvite({ code, type: 'login', userId: target, createdBy: u, expiresAt: Date.now() + LINK_MINUTES * 60e3 });
+      return json(200, { code, expiresAt: Date.now() + LINK_MINUTES * 60e3 });
+    }
+    case 'GET /sessions':
+      return json(200, { sessions: (await repo.listSessions(u)).map((s) => ({ ...s, current: s.id === who.sid })) });
+    case 'POST /sessions/revoke': {
+      const ok = await repo.revokeSession(u, String(body?.id || ''));
+      return ok ? json(200, { ok: true }) : json(404, { error: 'No existe esa sesión' });
+    }
+    case 'POST /auth/logout':
+      if (who.sid) await repo.revokeSession(u, who.sid);
+      return json(200, { ok: true });
+    case 'GET /users': {
+      if (!isOwner) return ownerOnly();
+      const list = await repo.listUsers();
+      for (const p of list) p.sessions = p.id === OWNER ? null : (await repo.listSessions(p.id)).length;
+      return json(200, { users: list });
+    }
+    case 'POST /users/disable': {
+      if (!isOwner) return ownerOnly();
+      try { await repo.setDisabled(String(body?.id || ''), !!body?.disabled); } catch (err) { return fail(err); }
+      return json(200, { ok: true });
+    }
+
+    /* ---------- Miembros de un chat ---------- */
+    case 'POST /chats/members': {
+      try { return json(200, await repo.updateMembers(u, body || {}).then((r) => ({ chat: r.chat }))); } catch (err) { return fail(err); }
+    }
+
+    /* ---------- Datos ---------- */
+    case 'GET /export':
+      return json(200, { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), ...(await repo.userData(u)) });
+    case 'POST /import': {
+      if (!isOwner) return ownerOnly();
+      if (!body || body.app !== 'retrodark' || !Array.isArray(body.messages)) return json(400, { error: 'El archivo no es una copia de RetroDark' });
+      return json(200, { resetAt: await repo.replaceAll(body) });
+    }
+    case 'POST /reset':
+      if (!isOwner) return ownerOnly();
+      return json(200, { resetAt: await repo.wipe() });
+
     /* ---------- Notificaciones push ---------- */
-    case 'GET /push/key': {
+    case 'GET /push/key':
       if (!vapidReady(vapid)) return json(503, { error: 'Faltan las claves VAPID en el servidor (npm run vapid)' });
       return json(200, { publicKey: vapid.publicKey });
-    }
-    case 'POST /push/subscribe': {
+    case 'POST /push/subscribe':
       if (!isValidSubscription(body?.subscription)) return json(400, { error: 'Suscripción no válida' });
-      const repo = await getRepo();
-      await repo.saveSub(body.subscription, userAgent);
+      await repo.saveSub(body.subscription, userAgent, u);
       return json(200, { ok: true });
-    }
-    case 'POST /push/unsubscribe': {
+    case 'POST /push/unsubscribe':
       if (typeof body?.endpoint !== 'string') return json(400, { error: 'Falta endpoint' });
-      const repo = await getRepo();
       await repo.deleteSub(body.endpoint);
       return json(200, { ok: true });
-    }
     case 'POST /push/test': {
       if (!vapidReady(vapid)) return json(503, { error: 'Faltan las claves VAPID en el servidor' });
-      const repo = await getRepo();
       const sub = typeof body?.endpoint === 'string' ? await repo.getSub(body.endpoint) : null;
       if (!sub) return json(404, { error: 'Este dispositivo no tiene las notificaciones activadas' });
       const sent = await pushToAll(repo, vapid, { title: 'RetroDark', body: 'Las notificaciones funcionan 🎉', tag: 'test' }, [sub]);
@@ -110,8 +222,7 @@ export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC', 
     case 'POST /push/action': {
       const { id, action } = body || {};
       if (typeof id !== 'string' || !['done', 'snooze'].includes(action)) return json(400, { error: 'Acción no válida' });
-      const repo = await getRepo();
-      const m = await repo.getMessage(id);
+      const m = await repo.getMessageFor(id, u);
       if (!m || m.trashedAt) return json(404, { error: 'El mensaje ya no existe' });
       const now = Date.now();
       let patch;
@@ -119,28 +230,39 @@ export async function handleApi({ getRepo, token, vapid, tz: defaultTz = 'UTC', 
       else if (m.repeat?.freq) patch = advance(m, { tz: validTz(body.tz) || defaultTz, now });
       else patch = { kind: 'task', done: true, doneAt: now };
       const { id: _, ...doc } = { ...m, ...patch, triaged: true };
-      const updatedAt = Math.max(now, (m.updatedAt || 0) + 1);
-      await repo.applyChanges([{ store: 'messages', id, updatedAt, doc }]);
+      const res = await repo.applyChanges([{ store: 'messages', id, updatedAt: Math.max(now, (m.updatedAt || 0) + 1), doc }], u);
+      if (res.rejected.length) return json(403, { error: res.rejected[0].reason });
       return json(200, { ok: true, due: doc.due || null, remindAt: doc.remindAt || null, done: !!doc.done });
     }
-    /* ---------- Ajustes del servidor ---------- */
-    case 'GET /settings': {
-      const repo = await getRepo();
-      return json(200, { ...withDefaults(await repo.getServerSettings(), defaultTz), features: { push: vapidReady(vapid), backups: !!backups, ...features } });
-    }
+
+    /* ---------- Ajustes, resumen, calendario y espacio ---------- */
+    case 'GET /settings':
+      return json(200, await settingsFor(repo, u, ctx));
     case 'POST /settings': {
       let patch;
-      try { patch = cleanPatch(body || {}); } catch (err) { return json(400, { error: err.message }); }
-      const repo = await getRepo();
-      await repo.saveServerSettings(patch);
-      return json(200, withDefaults(await repo.getServerSettings(), defaultTz));
+      try { patch = cleanPatch(body || {}); } catch (err) { return fail(err); }
+      const global = Object.fromEntries(Object.entries(patch).filter(([k]) => GLOBAL_KEYS.includes(k)));
+      const mine = Object.fromEntries(Object.entries(patch).filter(([k]) => USER_KEYS.includes(k)));
+      if (Object.keys(global).length) {
+        if (!isOwner) return ownerOnly();
+        await repo.saveServerSettings(global);
+      }
+      if (Object.keys(mine).length) {
+        await repo.saveUserPrefs(u, { ...(await repo.getUserPrefs(u)), ...mine });
+        // Compatibilidad: el resumen del propietario también queda en los ajustes globales.
+        if (isOwner) await repo.saveServerSettings(mine);
+      }
+      return json(200, await settingsFor(repo, u, ctx));
     }
     case 'POST /summary/test': {
       if (!vapidReady(vapid)) return json(503, { error: 'Faltan las claves VAPID en el servidor' });
-      const repo = await getRepo();
-      const s = withDefaults(await repo.getServerSettings(), defaultTz);
-      return json(200, { ok: true, ...(await sendSummary(repo, vapid, s.tz)) });
+      const s = await settingsFor(repo, u, ctx);
+      return json(200, { ok: true, ...(await sendSummary(repo, vapid, s.tz, Date.now(), u)) });
     }
+    case 'GET /feed':
+      return json(200, { key: await feedKey(token, u) });
+    case 'GET /storage':
+      return json(200, ctx.storageLimits ? storageState(await repo.getStorage(), ctx.storageLimits) : { available: false });
     default:
       return json(404, { error: 'not found' });
   }

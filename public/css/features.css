@@ -153,3 +153,33 @@ details.howto { margin-top: 10px; }
 details.howto summary { cursor: pointer; color: var(--green); font-size: 13.5px; }
 details.howto ol { padding-left: 20px; }
 details.howto li { margin: 6px 0; }
+
+/* ===================== Fase 3 ===================== */
+
+/* ---------- Personas ---------- */
+.person-dot { flex: none; display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--c); color: #fff; font-size: 13px; font-weight: 700; vertical-align: middle; }
+.person-dot.lg { width: 48px; height: 48px; font-size: 20px; }
+.chip .person-dot { width: 20px; height: 20px; font-size: 11px; margin-right: 2px; }
+.acc-head { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; }
+.badge-mini { font-size: 11px; padding: 1px 6px; border-radius: 8px; background: var(--emerald-tint, var(--soft)); color: var(--green); }
+.member-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.member-row .btn { padding: 4px 10px; font-size: 12.5px; }
+.role-chip { font-size: 11px; padding: 1px 7px; border-radius: 8px; background: var(--emerald-tint, var(--soft)); color: var(--green); margin-left: 4px; }
+.readonly-note { font-size: 13px; padding: 8px 10px; border-radius: 10px; background: var(--soft); color: var(--muted); margin: 0 0 10px; }
+.shared-ic { font-size: 12px; }
+
+/* ---------- Chat compartido ---------- */
+.mention { color: var(--green); font-weight: 600; background: var(--emerald-tint, var(--soft)); border-radius: 4px; padding: 0 2px; }
+.mention-bar { display: flex; gap: 6px; padding: 6px 10px 0; overflow-x: auto; scrollbar-width: none; }
+.mention-bar[hidden] { display: none; }
+.composer-locked { margin: 8px 12px; padding: 12px; text-align: center; font-size: 13.5px; color: var(--muted); border-radius: 12px; background: var(--soft); }
+.composer-locked[hidden] { display: none; }
+
+/* ---------- Almacenamiento ---------- */
+.st-row { margin: 10px 0; }
+.st-top { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; margin-bottom: 5px; }
+.st-top span:last-child { color: var(--muted); white-space: nowrap; }
+.st-bar { height: 10px; border-radius: 6px; background: var(--soft); overflow: hidden; }
+.st-bar i { display: block; height: 100%; border-radius: 6px; background: var(--green); transition: width .4s ease; }
+.st-bar.warn i { background: var(--warn); }
+.st-bar.full i { background: var(--danger); }

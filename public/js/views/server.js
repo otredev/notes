@@ -8,7 +8,6 @@ import { $, esc, shortWhen } from '../utils.js';
 import { ic } from '../icons.js';
 import { S, settings } from '../state.js';
 import { api } from '../data/sync.js';
-import { feedKey } from '../calendar.js';
 import { hasPin, hasBiometric, isUnlocked, lockInfo } from '../lock.js';
 
 const back = (title) => `<header class="pane-head"><button class="icon-btn" data-act="sub" data-v="" aria-label="Volver a Ajustes">${ic('back')}</button><h1>${title}</h1></header>`;
@@ -46,7 +45,7 @@ export function autoPaneHtml() {
       <p class="muted small" style="margin:8px 0 0"><b>Google Calendar</b> (en el ordenador): Otros calendarios → + → Desde URL. <b>iPhone</b>: Ajustes → Calendario → Cuentas → Añadir calendario suscrito. Cualquiera con esta URL puede ver esas fechas: no la compartas.</p>
     </div>
 
-    <div class="sec-title">✉️ Correo a nota</div>
+    ${s.isOwner === false ? '' : `<div class="sec-title">✉️ Correo a nota</div>
     <div class="set-group">${!ready() ? loading : `
       <p class="muted small" style="margin:0 0 8px">Reenvía un correo a tu dirección de RetroDark y llegará como mensaje. El asunto va en negrita; empieza el asunto con <code>[]</code> o <code>tarea:</code> para crear una tarea, o <code>nota:</code> para una nota. Una <code>#etiqueta</code> lo manda a su chat vinculado.</p>
       <label class="field"><span>Remitentes permitidos (uno por línea)</span><textarea id="email-allowed" rows="3" placeholder="tu@correo.com">${esc((s.email.allowed || []).join('\n'))}</textarea></label>
@@ -59,7 +58,7 @@ export function autoPaneHtml() {
           <li><b>Routing rules → Create address</b>: por ejemplo <code>notas@midominio.com</code>, acción <b>Send to a Worker</b> → <code>retrodark</code>.</li>
           <li>Pon tu correo arriba en "Remitentes permitidos". Los demás se rechazan.</li>
         </ol></details>`}
-    </div>
+    </div>`}
   </div>`;
 }
 
@@ -67,7 +66,9 @@ export function autoPaneHtml() {
 export async function fillFeedUrl() {
   const input = $('#feed-url');
   if (!input) return;
-  const url = `${location.origin}/cal/${await feedKey(settings.token)}.ics`;
+  let key;
+  try { key = (await api('feed')).key; } catch { input.value = 'No disponible sin conexión'; return; }
+  const url = `${location.origin}/cal/${key}.ics`;
   input.value = url;
   $('#feed-webcal').href = url.replace(/^https?:/, 'webcal:');
 }

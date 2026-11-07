@@ -81,7 +81,7 @@ const todayIn = (tz) => new Intl.DateTimeFormat('sv-SE', { timeZone: tz }).forma
 
 /* ---------- Acceso a datos ---------- */
 async function loadAll(repo) {
-  const d = await repo.exportAll();
+  const d = await repo.userData('owner');
   // Los mensajes en la papelera no se ven ni se pueden editar desde el asistente.
   return { chats: d.chats || [], messages: (d.messages || []).filter((m) => !m.trashedAt), categories: d.categories || [], groups: d.groups || [] };
 }

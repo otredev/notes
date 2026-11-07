@@ -10,6 +10,7 @@ import { toolbarHtml } from '../editor.js';
 import { pollHtml } from '../poll.js';
 import { aiAvailable, aiBusy } from '../ai.js';
 import { isLocked } from '../lock.js';
+import { isMine, isShared, nameOf, colorOf, canPost, membersOf, myId } from '../people.js';
 
 /** Texto que la IA sacó de un adjunto, o el botón para pedirlo. */
 function aiPart(m, a, kind) {
@@ -65,6 +66,8 @@ export function buildMain() {
     <footer class="composer-area" id="composer-area">
       <div class="reply-bar" id="reply-bar" hidden></div>
       <div class="attach-bar" id="attach-bar" hidden></div>
+      <div class="mention-bar scroll-x" id="mention-bar" hidden></div>
+      <div class="composer-locked" id="composer-locked" hidden>🔒 Solo los administradores pueden enviar mensajes en este chat</div>
       <div class="fmt-bar scroll-x" id="fmt-bar" ${settings.fmtBar ? '' : 'hidden'}>${toolbarHtml('composer-input', { extra: true })}</div>
       <div class="composer" id="composer">
         <button class="icon-btn kind-btn" id="kind-btn" data-act="cycle-kind"></button>
@@ -166,7 +169,7 @@ export function quoteHtml(id, { bar = false } = {}) {
   const chat = chatById(q.chatId);
   const cat = catById(q.categoryId);
   const where = q.chatId !== S.active && chat ? `${chat.emoji} ${chat.name} · ` : '';
-  const who = q.from === 'app' ? 'RetroDark' : KINDS[q.kind].label;
+  const who = q.from === 'app' ? 'RetroDark' : !isMine(q) ? nameOf(q.authorId) : KINDS[q.kind].label;
   return `<div class="quote ${bar ? 'in-bar' : ''}" style="--qc:${cat?.color || chat?.color || 'var(--green)'}" data-act="goto-msg" data-id="${q.id}" role="button" tabindex="0">
     <b>${esc(where + who)}</b><span>${esc(summary(q))}</span></div>`;
 }
@@ -205,6 +208,10 @@ export function renderChatHead() {
   const sub = [`${notes} ${notes === 1 ? 'nota' : 'notas'}`, `${done}/${tasks.length} tareas`];
   const group = S.groups.find((x) => x.id === c.groupId);
   if (group) sub.unshift(group.name);
+  if (isShared(c)) {
+    const others = membersOf(c).filter((x) => x.id !== myId()).map((x) => x.name);
+    sub.unshift(`👥 ${others.slice(0, 3).join(', ')}${others.length > 3 ? ` y ${others.length - 3} más` : ''} y tú`);
+  }
   const inbox = c.id === 'general' ? inboxList().length : 0;
   h.className = 'chat-head';
   h.innerHTML = `<button class="icon-btn back" data-act="back" aria-label="Volver">${ic('back')}</button>
@@ -216,11 +223,22 @@ export function renderChatHead() {
       <button class="icon-btn" data-act="chat-search" title="Buscar en el chat" aria-label="Buscar en el chat">${ic('search')}</button>
       <button class="icon-btn" data-act="edit-chat" title="Información del chat" aria-label="Información del chat">${ic('more')}</button>
     </div>`;
+  renderComposerState(c);
   const progress = $('#chat-progress');
   if (c.type === 'list' && tasks.length) {
     progress.hidden = false;
     progress.innerHTML = `<i style="width:${Math.round((done / tasks.length) * 100)}%"></i>`;
   } else progress.hidden = true;
+}
+
+/** "Solo los administradores pueden enviar": sin cuadro de texto para los demás. */
+export function renderComposerState(c = chatById(S.active)) {
+  const locked = !!c && !canPost(c);
+  const box = $('#composer-locked'), comp = $('#composer');
+  if (!box || !comp) return;
+  box.hidden = !locked;
+  comp.hidden = locked || !$('#rec-bar')?.hidden;
+  if (locked) { $('#fmt-bar').hidden = true; $('#mention-bar').hidden = true; } else $('#fmt-bar').hidden = !settings.fmtBar;
 }
 
 export function renderFilters() {
@@ -244,9 +262,11 @@ function bubble(m, replies) {
   const replyCount = r
     ? `<button class="reply-count" data-act="goto-msg" data-id="${r.last}" title="Ir a la última respuesta">${ic('reply', 'tiny')} ${r.n}</button>` : '';
   // Mensajes de la app y del asistente (MCP) se ven como recibidos, a la izquierda.
-  const side = m.from === 'app' || m.from === 'mcp' || m.from === 'email' ? 'in' : 'out';
+  const other = !isMine(m);
+  const side = other || m.from === 'app' || m.from === 'mcp' || m.from === 'email' ? 'in' : 'out';
   const sender = m.from === 'mcp' ? '<div class="b-sender">🤖 Asistente</div>'
-    : m.from === 'email' ? `<div class="b-sender">✉️ Correo${m.fromAddress ? ` · ${esc(m.fromAddress)}` : ''}</div>` : '';
+    : m.from === 'email' ? `<div class="b-sender">✉️ Correo${m.fromAddress ? ` · ${esc(m.fromAddress)}` : ''}</div>`
+    : other ? `<div class="b-sender" style="color:${colorOf(m.authorId)}">${esc(nameOf(m.authorId))}</div>` : '';
   const chips = [cat ? catChip(cat) : '', m.due ? dueChip(m) : '', remindChip(m), repeatChip(m), m.pinned ? `<span class="mini">${ic('pin', 'tiny')}</span>` : ''].join('');
   const cl = checklistOf(m.text);
   const kindHeader = cl

@@ -18,7 +18,8 @@ import { isAudio, fmtSize } from '../files.js';
 import { toolbarHtml } from '../editor.js';
 import { REPEATS, DOW, firstDate, advance, repeatLabel } from '../recurrence.js';
 import { googleCalendarUrl, downloadIcs } from '../calendar.js';
-import { pollCounts, setPollClosed } from '../poll.js';
+import { pollCounts, setPollClosed, pollVoters } from '../poll.js';
+import { canEdit, canDelete, isChatAdmin, nameOf } from '../people.js';
 
 const repeatKey = (r) => (!r?.freq ? '' : r.freq === 'week' && Number.isInteger(r.dow) ? `week:${r.dow}` : r.freq);
 const repeatFromKey = (k) => {
@@ -36,10 +37,12 @@ function repeatOptions(m) {
 }
 
 function pollInfo(m) {
-  const { counts, voters } = pollCounts(m.poll);
-  return `<div class="field"><span>Encuesta · ${voters} voto${voters === 1 ? '' : 's'}${m.poll.multi ? ' · varias respuestas' : ''}</span>
-    <div class="poll-sum">${m.poll.options.map((o) => `<div><span class="grow">${esc(o.text)}</span><b>${counts[o.id]}</b></div>`).join('')}</div>
-    <div class="btn-row"><button class="btn outline" data-s="poll-close">${m.poll.closed ? '🔓 Reabrir encuesta' : '🔒 Cerrar encuesta'}</button></div></div>`;
+  const { counts, voters: n } = pollCounts(m.poll);
+  const voters = pollVoters(m.poll);
+  const canClose = canEdit(m) || isChatAdmin(chatById(m.chatId));
+  return `<div class="field"><span>Encuesta · ${n} voto${n === 1 ? '' : 's'}${m.poll.multi ? ' · varias respuestas' : ''}</span>
+    <div class="poll-sum">${m.poll.options.map((o) => `<div><span class="grow">${esc(o.text)}${voters[o.id].length ? `<br><small class="muted">${esc(voters[o.id].join(', '))}</small>` : ''}</span><b>${counts[o.id]}</b></div>`).join('')}</div>
+    ${canClose ? `<div class="btn-row"><button class="btn outline" data-s="poll-close">${m.poll.closed ? '🔓 Reabrir encuesta' : '🔒 Cerrar encuesta'}</button></div>` : ''}</div>`;
 }
 
 export function messageSheet(id) {
@@ -50,7 +53,10 @@ export function messageSheet(id) {
   const attRows = () => st.atts.map((a) => `<div class="pend"><span class="pend-ic">${ic(isAudio(a) ? 'mic' : 'file')}</span>
       <span class="pend-name">${esc(a.name)}<small>${fmtSize(a.size)}</small></span>
       <button class="icon-btn" data-s="att-del" data-v="${a.id}" aria-label="Quitar">${ic('close')}</button></div>`).join('');
+  const chat = chatById(m.chatId);
+  const editable = canEdit(m);
   const body = `
+    ${editable ? '' : `<p class="readonly-note">✍️ Escrito por <b>${esc(nameOf(m.authorId))}</b>. Puedes marcarlo como hecho, destacarlo o ponerle tu categoría; el resto solo lo cambia quien lo escribió.</p>`}
     <div class="field"><span>${m.poll ? 'Pregunta' : 'Texto'}</span>
       ${m.poll ? '' : `<div class="fmt-bar scroll-x in-sheet">${toolbarHtml('f-text')}</div>`}
       <textarea id="f-text" rows="4">${esc(m.text)}</textarea></div>
@@ -144,11 +150,15 @@ export function messageSheet(id) {
     actions: `<button class="btn ghost" data-s="reply">${ic('reply', 'tiny')} Responder</button>
       <button class="btn ghost" data-s="quote">${ic('quote', 'tiny')} Citar en…</button>
       <button class="btn ghost" data-s="copy">${ic('copy', 'tiny')} Copiar</button>
-      <button class="btn danger ghost" data-s="del">${ic('trash', 'tiny')} Eliminar</button>
+      ${canDelete(m, chat) ? `<button class="btn danger ghost" data-s="del">${ic('trash', 'tiny')} Eliminar</button>` : ''}
       <span class="grow"></span><button class="btn outline" data-s="cancel" title="Descartar los cambios">Cancelar</button>`,
     onClose: () => { if (mode === 'save' && sh) commit().catch((err) => toast(`No se pudo guardar: ${err.message}`)); },
     onMount: (el) => {
       sh = el;
+      if (!editable) {
+        sh.querySelectorAll('#f-text, #f-due, #f-repeat, #f-remind, #f-chat, #f-pin, [data-s=kind], [data-s=remind], [data-s=att-del]').forEach((x) => { x.disabled = true; });
+        sh.querySelector('.fmt-bar')?.remove();
+      }
       initial = JSON.stringify(collect());
       sh.addEventListener('input', (e) => { if (e.target.matches('#f-due, #f-remind')) updateCal(); });
       sh.addEventListener('change', (e) => { if (e.target.matches('#f-due, #f-remind')) updateCal(); });

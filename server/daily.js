@@ -32,29 +32,39 @@ export function buildSummary({ messages, chats }, tz, now = Date.now()) {
   return { title: `☀️ Tu día: ${parts.join(' · ')}`, body: lines.join('\n') };
 }
 
-export async function sendSummary(repo, vapid, tz, now = Date.now()) {
-  const s = buildSummary(await repo.liveData(), tz, now);
+export async function sendSummary(repo, vapid, tz, now = Date.now(), uid = 'owner') {
+  const s = buildSummary(await repo.liveData(uid), tz, now);
   if (!s) return { sent: 0, empty: true };
-  return { sent: await pushToAll(repo, vapid, { ...s, tag: 'daily-summary', url: './?nav=tasks' }), empty: false };
+  const subs = await repo.listSubs(uid);
+  if (!subs.length) return { sent: 0, empty: false };
+  return { sent: await pushToAll(repo, vapid, { ...s, tag: 'daily-summary', url: './?nav=tasks' }, subs), empty: false };
 }
 
 /**
  * @param {{ vapid?: object, backups?: object, tz: string, now?: number }} opt  backups: almacén de copias (R2) o null
  */
-export async function runDaily(repo, { vapid, backups, tz: fallbackTz, now = Date.now() }) {
+export async function runDaily(repo, { vapid, backups, tz: fallbackTz, now = Date.now(), storageOk = () => true }) {
   const settings = withDefaults(await repo.getServerSettings(), fallbackTz);
-  const { date, h, m } = localParts(now, settings.tz);
-  const minutes = h * 60 + m;
   const out = {};
 
-  if (settings.summary.enabled && vapidReady(vapid)) {
-    const [sh, sm] = settings.summary.time.split(':').map(Number);
-    // Ventana de 1 hora: si el cron se salta un minuto, se envía igual.
-    if (minutes >= sh * 60 + sm && minutes < sh * 60 + sm + 60 && await repo.claimDaily('summary', date)) {
-      out.summary = await sendSummary(repo, vapid, settings.tz, now);
+  // Resumen: cada persona a su hora y en su zona horaria.
+  if (vapidReady(vapid)) {
+    for (const p of await repo.activeUsers()) {
+      const prefs = await repo.getUserPrefs(p.id);
+      const summary = { ...(p.id === 'owner' ? settings.summary : { enabled: false, time: '08:00' }), ...(prefs.summary || {}) };
+      if (!summary.enabled) continue;
+      const tz = prefs.tz || (p.id === 'owner' ? settings.tz : fallbackTz);
+      const { date, h, m } = localParts(now, tz);
+      const [sh, sm] = summary.time.split(':').map(Number);
+      const minutes = h * 60 + m;
+      // Ventana de 1 hora: si el cron se salta un minuto, se envía igual.
+      if (minutes >= sh * 60 + sm && minutes < sh * 60 + sm + 60 && await repo.claimDaily(p.id === 'owner' ? 'summary' : `summary:${p.id}`, date)) {
+        (out.summary ||= {})[p.id] = await sendSummary(repo, vapid, tz, now, p.id);
+      }
     }
   }
-  if (backups && settings.backups.enabled && h >= 3 && await repo.claimDaily('backup', date)) {
+  const { date, h } = localParts(now, settings.tz);
+  if (backups && settings.backups.enabled && h >= 3 && await storageOk() && await repo.claimDaily('backup', date)) {
     out.backup = (await createBackup(repo, backups, `${date}.json`)).name;
   }
   return out;

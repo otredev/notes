@@ -7,7 +7,7 @@
  * no guarda archivos: responde 503 y la app los mantiene en el dispositivo hasta que
  * pueda subirlos a Cloudflare. Requiere la misma clave que la API.
  */
-import { tokenOk } from './api.js';
+import { identify } from './accounts.js';
 
 export const MAX_FILE_BYTES = 50 * 1024 * 1024;
 const ID_RE = /^[a-z0-9]{6,40}$/i;
@@ -62,7 +62,8 @@ export const r2Store = (bucket) => ({
  * @returns {Promise<{ status: number, json?: object, body?: ReadableStream|Uint8Array, headers?: object }>}
  */
 export async function handleFiles({ store, token }, { method, id, auth, body, size, type, name }) {
-  if (!tokenOk(token, auth)) return err(401, 'unauthorized');
+  // Cualquier persona con sesión (la firma basta: los ids de archivo no se pueden adivinar).
+  if (!(await identify(token, auth))) return err(401, 'unauthorized');
   if (!ID_RE.test(id || '')) return err(400, 'Id de archivo no válido');
 
   if (method === 'PUT') {

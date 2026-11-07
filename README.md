@@ -41,6 +41,21 @@ Luego, en cada dispositivo: **Ajustes → Notificaciones → Activar notificacio
 
 El Worker revisa los recordatorios cada minuto (`triggers.crons` en `wrangler.jsonc`) y envía el aviso a todos los dispositivos con las notificaciones activadas. Si cambias las claves VAPID, cada dispositivo tiene que volver a activarlas.
 
+### Personas y chats compartidos
+
+Quien usa `APP_TOKEN` es el **propietario** (tus dispositivos de siempre siguen igual). Para usar RetroDark con más gente:
+
+1. **Ajustes → Personas → Invitar a alguien**: se copia un enlace (`…/?join=…`, 7 días, un solo uso). Quien lo abre elige su nombre y su usuario, y ese dispositivo queda con su propia sesión (sin contraseñas). Cada persona tiene sus propias notas, categorías y plantillas.
+2. En la **información de un chat → Añadir persona** lo compartes. Los administradores cambian nombre e icono, añaden o sacan gente y pueden activar **"Solo los administradores pueden enviar"** (lo hace cumplir el servidor).
+3. Los mensajes de otros solo los edita quien los escribió; los demás pueden marcar casillas, completar tareas y votar en las encuestas (cada uno su voto). `@usuario` menciona y avisa.
+4. **Ajustes → Cuenta → Vincular otro dispositivo** crea un enlace de 30 minutos para entrar desde otro móvil u ordenador. El propietario puede crear enlaces de acceso o desactivar a cualquiera en **Personas**.
+
+Los cambios llegan **en tiempo real** por WebSocket (Durable Object). Las cuentas necesitan `APP_TOKEN`; con el servidor local (`npm start`) no hay tiempo real (sincroniza cada 30 s).
+
+### Espacio en la nube (sin cobros sorpresa)
+
+Cloudflare no deja poner un tope de gasto a R2, así que la app lleva la cuenta: bytes guardados (se recalcula cada hora) y operaciones del mes (clase A: subidas y listados; clase B: descargas). Al **75 %** del límite gratis avisa; al **90 %** rechaza archivos y copias nuevos (HTTP 507) y muestra una ventana. Las barras están en **Ajustes → Almacenamiento**. Los límites se cambian en `wrangler.jsonc` (`STORAGE_LIMIT_GB`, `R2_CLASS_A_LIMIT`, `R2_CLASS_B_LIMIT`, `STORAGE_WARN_PCT`, `STORAGE_STOP_PCT`).
+
 ### Inteligencia artificial (Workers AI)
 
 No hay que configurar nada: `wrangler.jsonc` ya trae el binding `AI`. Se usa al pulsar **📝 Transcribir** (notas de voz, modelo Whisper) o **📝 Extraer texto** (fotos, modelo de visión Llama 3.2). La primera vez que se lee una foto, el Worker acepta la licencia de Meta en tu cuenta; si fallara, acéptala tú una vez:
@@ -137,6 +152,14 @@ El resto de archivos (`public/`) los sirve Cloudflare directamente. En local, `s
 | Método | Ruta | Para qué |
 |---|---|---|
 | `GET` | `/api/health` | Comprobar que el servidor responde |
+| `POST` | `/api/auth/join` · `/api/auth/redeem` | Unirse con una invitación · vincular un dispositivo (sin sesión) |
+| `POST` | `/api/auth/invite` · `/api/auth/link` · `/api/auth/logout` | Crear invitación (propietario) · enlace de dispositivo · cerrar sesión |
+| `GET` · `POST` | `/api/me` · `GET /api/people` | Tu perfil · personas de RetroDark |
+| `GET` · `POST` | `/api/sessions` · `/api/sessions/revoke` | Tus dispositivos |
+| `GET` · `POST` | `/api/users` · `/api/users/disable` | Personas y acceso (propietario) |
+| `POST` | `/api/chats/members` | `{ chatId, add \| remove \| role \| leave }` |
+| `GET` | `/api/live` | Tiempo real (WebSocket, `?token=`) |
+| `GET` | `/api/storage` | Espacio usado en R2 |
 | `POST` | `/api/sync` | Subir cambios `{ since, resetAt, changes }` y recibir los del servidor |
 | `GET` | `/api/export` | Copia completa en JSON |
 | `POST` | `/api/import` | Reemplazar todo con una copia |
@@ -171,6 +194,9 @@ server/
   backups.js      copias de seguridad en R2
   email.js        correo a nota (Email Routing)
   settings.js     ajustes del servidor (validación y valores por defecto)
+  accounts.js     cuentas, sesiones firmadas e invitaciones
+  notify.js       avisos de mensajes nuevos y menciones en chats compartidos
+  storage.js      control del espacio de R2 (límite gratis)
   repo.js         lectura y escritura en MongoDB (sincronización)
   db.js           conexión e índices
   app.js          servidor Express para usar en local
@@ -192,6 +218,9 @@ public/
     poll.js       encuestas
     ai.js         transcribir / extraer texto (Workers AI)
     lock.js       bloqueo de chats con PIN y huella
+    people.js     personas, permisos y menciones
+    live.js       tiempo real (WebSocket)
+    storage.js    aviso y barras del espacio en la nube
     render.js     redibujar todo
     actions.js    abrir chats, enviar, completar, importar, borrar…
     events.js     clics, teclado, pulsación larga
@@ -201,7 +230,7 @@ public/
     backnav.js    botón Atrás y "¿Salir?"
     data/         idb.js (IndexedDB), store.js (datos), sync.js (MongoDB)
     ui/           dom.js (avisos y hojas), parts.js (piezas de HTML)
-    views/        nav, pane, chatList, tasks (lista, agenda, tablero), organize, settings, server, chat, docs, trash
+    views/        nav, pane, chatList, tasks (lista, agenda, tablero), organize, settings, server, account, chat, docs, trash
     sheets/       message, chat, group, category, triage, template
 ```
 
@@ -229,6 +258,8 @@ public/
 - **Resumen del día** por notificación, **calendario suscrito** (.ics para Google/Apple/Outlook) y **correo a nota**.
 - **Copias de seguridad** diarias en R2 con descarga y restauración.
 - **Chats bloqueados** con PIN o huella / Face ID.
+- **Varias personas**: invitaciones por enlace, chats compartidos con administradores, "solo los administradores pueden enviar", votos por persona, @menciones y cambios en tiempo real.
+- **Control del espacio en la nube**: barras en Ajustes y freno automático al 90 % del límite gratis de R2.
 - **Compartir con RetroDark** desde otras apps y **accesos directos** del icono (nueva tarea, nueva nota, agenda).
 - Vista de **Tareas**, **Organizar** y **Ajustes** (tema, sincronización, exportar/importar, documentación y papelera).
 

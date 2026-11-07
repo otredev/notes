@@ -1,9 +1,10 @@
 /*
  * Ajustes que viven en el servidor (los comparten todos tus dispositivos):
+ *   backups  → copia diaria automática en R2 { enabled }                 (solo el propietario)
+ *   email    → correo a nota { allowed: [direcciones], chat: id }         (solo el propietario)
+ * Y otros que son de cada usuario (se guardan en su ficha):
  *   summary  → resumen diario por notificación { enabled, time: "HH:MM" }
- *   backups  → copia diaria automática en R2 { enabled }
- *   email    → correo a nota { allowed: [direcciones], chat: id }
- *   tz       → zona horaria para lo anterior
+ *   tz       → su zona horaria
  */
 export const DEFAULTS = {
   summary: { enabled: false, time: '08:00' },
@@ -50,3 +51,7 @@ export function cleanPatch(body = {}) {
   }
   return out;
 }
+
+/** Lo que cada usuario decide por sí mismo. */
+export const USER_KEYS = ['summary', 'tz'];
+export const GLOBAL_KEYS = ['backups', 'email'];

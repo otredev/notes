@@ -126,6 +126,9 @@ function atTime(dateKey, h, min) {
 
 /* ---------- Formato ---------- */
 
+/** Usuarios (@usuario) que se resaltan como mención. Lo rellena people.js. */
+export const mentionNames = new Set();
+
 /** Formato dentro de una línea: `código`, __subrayado__, *negrita*, _cursiva_, ~tachado~, enlaces y #etiquetas. */
 function inline(src) {
   const codes = [];
@@ -136,7 +139,8 @@ function inline(src) {
     .replace(/(^|[\s>(])_([^_\n]+)_(?=$|[\s<.,;:!?)])/g, '$1<i>$2</i>')
     .replace(/~([^~\n]+)~/g, '<s>$1</s>')
     .replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/(^|\s)#([\p{L}\p{N}_-]+)/gu, '$1<span class="tag" data-act="tag" data-tag="$2">#$2</span>');
+    .replace(/(^|\s)#([\p{L}\p{N}_-]+)/gu, '$1<span class="tag" data-act="tag" data-tag="$2">#$2</span>')
+    .replace(/(^|\s)@([a-z0-9_]{2,24})(?![a-z0-9_])/g, (m, p, h) => (mentionNames.has(h) ? `${p}<span class="mention">@${h}</span>` : m));
   return h.replace(/\u0001(\d+)\u0001/g, (_, i) => `<code>${codes[+i]}</code>`);
 }
 

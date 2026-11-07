@@ -1,15 +1,15 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'retrodark-v12';
+const CACHE = 'retrodark-v13';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
   './js/main.js', './js/utils.js', './js/icons.js', './js/constants.js', './js/state.js', './js/text.js',
   './js/render.js', './js/actions.js', './js/events.js', './js/backnav.js', './js/push.js', './js/files.js', './js/player.js',
-  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js', './js/ai.js', './js/lock.js',
+  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js', './js/ai.js', './js/lock.js', './js/people.js', './js/live.js', './js/storage.js',
   './js/data/idb.js', './js/data/store.js', './js/data/sync.js',
   './js/ui/dom.js', './js/ui/parts.js',
   './js/views/nav.js', './js/views/pane.js', './js/views/chatList.js', './js/views/tasks.js',
-  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js', './js/views/server.js',
+  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js', './js/views/server.js', './js/views/account.js',
   './js/sheets/message.js', './js/sheets/chat.js', './js/sheets/group.js', './js/sheets/category.js', './js/sheets/triage.js', './js/sheets/template.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
 ];

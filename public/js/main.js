@@ -18,6 +18,11 @@ import { buildMain } from './views/chat.js';
 import { bindEvents } from './events.js';
 import { loadServer } from './views/server.js';
 import { initLock, onLockChange, isLocked } from './lock.js';
+import { loadMe, onMe, onRejected } from './data/sync.js';
+import { initPeople } from './people.js';
+import { startLive } from './live.js';
+import { checkStorageOnStart, storageBarsHtml } from './storage.js';
+import { joinSheet, loginSheet } from './views/account.js';
 import { initBackNav } from './backnav.js';
 import { openChat, gotoMsg, closeChat, addFiles } from './actions.js';
 
@@ -31,6 +36,10 @@ async function init() {
     return;
   }
 
+  await loadMe();
+  initPeople();
+  onMe(() => { initPeople(); refreshAll(); if (S.nav === 'settings') renderPane(true); });
+  onRejected((list) => toast(`⚠️ ${list[0].reason}${list.length > 1 ? ` (y ${list.length - 1} más)` : ''}`));
   onStatus(() => { updateSyncIndicator(); updateSyncBox(); });
   // Cambios desde otro dispositivo: se redibuja (salvo con una hoja abierta, para no molestar).
   onRemote(() => { if (!isSheetOpen()) refreshAll(); });
@@ -58,8 +67,19 @@ async function init() {
   // Plantillas de ejemplo y limpieza de la papelera (más de 30 días).
   seedTemplates().then(() => { if (S.nav === 'org') renderPane(true); }).catch(() => {});
   purgeTrash().then((n) => { if (n) refreshAll(); }).catch(() => {});
-  // Qué ofrece el servidor (IA, copias…).
-  loadServer().then((s) => { if (s?.features?.ai) refreshAll(); });
+  // Qué ofrece el servidor (IA, copias, tiempo real, espacio…).
+  const afterServer = (s) => {
+    const box = document.getElementById('storage-box');
+    if (box) box.innerHTML = storageBarsHtml();
+    return s;
+  };
+  loadServer().then((s) => {
+    afterServer(s);
+    if (s?.features?.ai) refreshAll();
+    checkStorageOnStart();
+    startLive();
+  });
+  setInterval(() => { if (document.visibilityState === 'visible') loadServer().then(afterServer); }, 10 * 60e3);
   onLockChange(() => {
     if (S.active && isLocked(S.active)) { if (isMobile()) { S.active = null; closeChat(); buildMain(); } else openChat('general'); }
     refreshAll();
@@ -87,6 +107,8 @@ async function init() {
  *   ?share=1 → lo compartido (texto, enlace, archivos) va al cuadro de texto de General
  */
 async function openFromParams(params) {
+  if (params.get('join')) { joinSheet(params.get('join')); return; }
+  if (params.get('login')) { loginSheet(params.get('login')); return; }
   const nav = params.get('nav');
   if (nav && ['chats', 'tasks', 'org', 'settings'].includes(nav)) {
     S.nav = nav;

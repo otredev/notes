@@ -11,10 +11,12 @@ import { uploadPending } from '../files.js';
 
 const BATCH = 400;
 const status = { state: 'idle', pending: 0, lastSync: null };
-const listeners = { status: new Set(), remote: new Set() };
+const listeners = { status: new Set(), remote: new Set(), rejected: new Set() };
 
 export const getStatus = () => status;
 export const onStatus = (fn) => listeners.status.add(fn);
+/** Cambios que el servidor no aceptó (permisos de un chat compartido). */
+export const onRejected = (fn) => listeners.rejected.add(fn);
 /** Se llama cuando llegan cambios de otro dispositivo. */
 export const onRemote = (fn) => listeners.remote.add(fn);
 
@@ -85,6 +87,8 @@ async function applyRemote(store, doc) {
   if (local && (local.updatedAt || 0) >= doc.updatedAt) return false; // ya lo tenemos (o es más nuevo)
   dropLocal(store, doc.id);
   if (doc.deleted) {
+    // Un chat que desaparece (lo borraron o me sacaron) se lleva sus mensajes de este dispositivo.
+    if (store === 'chats') await dropChatMessages(doc.id);
     if (!local) return false;
     await idb.del(store, doc.id);
     return true;
@@ -93,6 +97,31 @@ async function applyRemote(store, doc) {
   listFor(store, clean).push(clean);
   await idb.put(store, clean);
   return true;
+}
+
+async function dropChatMessages(chatId) {
+  const gone = [...S.messages, ...S.trash].filter((m) => m.chatId === chatId);
+  for (const m of gone) { dropLocal('messages', m.id); await idb.del('messages', m.id); await idb.del('outbox', `messages:${m.id}`); }
+}
+
+/* ---------- Quién soy ---------- */
+const meListeners = new Set();
+export const onMe = (fn) => meListeners.add(fn);
+export async function setMe(me, people) {
+  if (!me) return;
+  const changed = JSON.stringify([S.me, S.people]) !== JSON.stringify([me, people]);
+  S.me = me;
+  if (people) S.people = people;
+  if (changed) { await idb.put('meta', { key: 'me', me, people: S.people }); meListeners.forEach((fn) => fn()); }
+}
+export async function loadMe() {
+  const m = await idb.get('meta', 'me');
+  if (m) { S.me = m.me; S.people = m.people || []; }
+}
+/** Al cambiar de clave/cuenta se empieza de cero en este dispositivo. */
+export async function forgetAccount() {
+  await idb.del('meta', 'me');
+  S.me = null; S.people = [];
 }
 
 /** Borra todo lo local (cuando los datos del servidor se reiniciaron o se importaron). */
@@ -164,6 +193,8 @@ async function doSync() {
       for (const s of DATA_STORES) {
         for (const d of res.changes[s] || []) if (await applyRemote(s, d)) changed = true;
       }
+      if (res.me) await setMe(res.me, res.people);
+      if (res.rejected?.length) listeners.rejected.forEach((fn) => fn(res.rejected));
       meta = { ...meta, cursor: res.cursor, resetAt: res.resetAt };
       await saveMeta(meta);
     } while (queue.length);

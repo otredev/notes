@@ -7,6 +7,8 @@ import { parse, toggleItemLine, ITEM_RE } from './text.js';
 import { chatById, msgById, put, touch, seed, trashMessages } from './data/store.js';
 import { advance, repeatLabel } from './recurrence.js';
 import { isLocked, requireUnlock } from './lock.js';
+import { canPost, mentionsIn, myId } from './people.js';
+import { canUpload } from './storage.js';
 import { api, resetLocal, syncNow, notifyUploads } from './data/sync.js';
 import { toast, closeSheet, confirmSheet, sheet, copyText } from './ui/dom.js';
 import { runAi, aiAvailable } from './ai.js';
@@ -88,6 +90,7 @@ export function resetView() {
 export async function send() {
   const ta = $('#composer-input'), chat = chatById(S.active);
   if (!ta || !chat) return;
+  if (!canPost(chat)) { toast('Solo los administradores pueden enviar mensajes en este chat'); return; }
   const p = parse(ta.value, effKind());
   if (!p.text && !S.pending.length) return;
   const pending = S.pending;
@@ -96,7 +99,7 @@ export async function send() {
   // En General, una #etiqueta vinculada a otro chat manda el mensaje allí.
   let target = chat;
   if (chat.id === 'general' && p.tags.length) {
-    const linked = S.chats.find((c) => c.id !== 'general' && (c.tags || []).some((t) => p.tags.includes(t)));
+    const linked = S.chats.find((c) => c.id !== 'general' && canPost(c) && (c.tags || []).some((t) => p.tags.includes(t)));
     if (linked) {
       target = linked;
       if (!p.explicit && !S.kind) p.kind = TYPES[linked.type].kind;
@@ -112,6 +115,8 @@ export async function send() {
     replyTo: S.replyTo && msgById(S.replyTo) ? S.replyTo : null,
     remindAt: p.remindAt || null,
     ...(p.repeat ? { repeat: p.repeat } : {}),
+    ...(mentionsIn(p.text, target).length ? { mentions: mentionsIn(p.text, target) } : {}),
+    authorId: myId(),
     ...(pending.length ? { attachments: pending.map((x) => x.att) } : {}),
   };
   S.replyTo = null;
@@ -137,6 +142,8 @@ export async function send() {
 export async function addFiles(fileList) {
   const files = [...(fileList || [])];
   if (!files.length || !chatById(S.active)) return;
+  // Espacio en la nube casi lleno: no se adjunta nada nuevo.
+  if (!canUpload()) return;
   for (const f of files) {
     try {
       const { att, blob } = await prepareFile(f);
@@ -164,6 +171,7 @@ export function clearPending() {
 const MAX_RECORDING_S = 600;
 
 export async function startVoice() {
+  if (!canUpload()) return;
   try {
     await startRecording((secs) => {
       const t = $('#rec-time');

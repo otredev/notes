@@ -4,7 +4,7 @@
  *   POST /api/ai/ocr        { fileId }             → { text }  texto de una foto (modelo de visión)
  * La app guarda el resultado en el adjunto (attachment.text), así se puede buscar.
  */
-import { tokenOk } from './api.js';
+import { identify } from './accounts.js';
 
 export const STT_MODEL = '@cf/openai/whisper-large-v3-turbo';
 export const VISION_MODEL = '@cf/meta/llama-3.2-11b-vision-instruct';
@@ -42,7 +42,7 @@ async function runVision(ai, input) {
 }
 
 export async function handleAi({ ai, store, token }, { method, path, auth, body }) {
-  if (!tokenOk(token, auth)) return { status: 401, body: { error: 'unauthorized' } };
+  if (!(await identify(token, auth))) return { status: 401, body: { error: 'unauthorized' } };
   if (!ai) return { status: 503, body: { error: 'Falta Workers AI (binding AI en wrangler.jsonc)' } };
   if (!store) return { status: 503, body: { error: 'Falta el bucket de R2' } };
   if (method !== 'POST') return { status: 405, body: { error: 'Solo POST' } };

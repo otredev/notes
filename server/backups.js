@@ -40,11 +40,16 @@ export async function createBackup(repo, store, name) {
 const stamp = (d = new Date()) => d.toISOString().replace(/[-:]/g, '').replace('T', '-').slice(0, 15).replace(/^(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
 
 /** Rutas /backups (dentro de handleApi). `store` null → 503 (servidor local sin R2). */
-export async function handleBackups({ getRepo, store }, { method, path }) {
+export async function handleBackups({ getRepo, store, storage }, { method, path }) {
   if (!store) return { status: 503, body: { error: 'Las copias en la nube solo funcionan en Cloudflare (R2)' } };
   if (path === '/backups' && method === 'GET') return { status: 200, body: { backups: await store.list() } };
   if (path === '/backups' && method === 'POST') {
-    return { status: 200, body: await createBackup(await getRepo(), store, `${stamp()}.json`) };
+    const repo = await getRepo();
+    if (storage) {
+      const { storageState } = await import('./storage.js');
+      if (storageState(await repo.getStorage(), storage).state === 'full') return { status: 507, body: { error: 'El espacio en la nube está casi lleno: no se crean más copias' } };
+    }
+    return { status: 200, body: await createBackup(repo, store, `${stamp()}.json`) };
   }
   const name = decodeURIComponent(path.slice('/backups/'.length));
   if (method === 'GET' && NAME_RE.test(name)) {

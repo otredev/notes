@@ -119,12 +119,12 @@ export function downloadIcs(m) {
 
 /* ---------- Feed suscribible ---------- */
 
-/** Clave del feed: deriva de APP_TOKEN (HMAC), así la URL no revela la clave de acceso. */
-export async function feedKey(token) {
+/** Clave del feed de cada usuario: deriva de APP_TOKEN (HMAC), así la URL no revela ninguna clave. */
+export async function feedKey(token, uid = 'owner') {
   if (!token) return 'feed';
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(token), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode('retrodark-ics-feed')));
+  const sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(uid === 'owner' ? 'retrodark-ics-feed' : `retrodark-ics-feed:${uid}`)));
   return [...sig.slice(0, 16)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 

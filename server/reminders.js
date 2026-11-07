@@ -7,7 +7,7 @@ import { sendPush } from './webpush.js';
 const ITEM_RE = /^(\s*(?:-\s*)?)\[([ xX]?)\]\s?(.*)$/;
 
 /** Texto corto del mensaje para la notificación (igual que en la app). */
-function summary(m) {
+export function summary(m) {
   const lines = String(m.text || '').split('\n');
   const items = lines.filter((l) => ITEM_RE.test(l));
   let text;
@@ -53,12 +53,13 @@ export async function runReminders(repo, vapid, now = Date.now()) {
   if (!vapidReady(vapid)) return 0;
   const due = await repo.dueReminders(now);
   if (!due.length) return 0;
-  const subs = await repo.listSubs();
   for (const m of due) {
     // Se marca antes de enviar para no repetir el aviso si el siguiente minuto se solapa.
     await repo.markReminded(m.id, m.remindAt);
+    // El aviso es para quien escribió el mensaje (en chats compartidos, cada uno los suyos).
+    const subs = await repo.listSubs(m.authorId || 'owner');
     if (!subs.length) continue;
-    const chat = await repo.getChat(m.chatId);
+    const chat = await repo.getChat(m.chatId, m.authorId || 'owner');
     await pushToAll(repo, vapid, {
       title: chat ? `⏰ ${chat.emoji || ''} ${chat.name}`.replace(/\s+/g, ' ') : '⏰ Recordatorio',
       // En un chat bloqueado no se muestra el contenido.
