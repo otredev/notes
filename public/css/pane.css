@@ -55,6 +55,8 @@
 .cr-name { flex: 1; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cr-time { font-size: 12px; color: var(--muted); flex: none; }
 .cr-time.hl { color: var(--green); }
+.cr-pending { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.badge.muted { background: var(--muted); color: var(--panel); }
 .cr-prev { flex: 1; color: var(--muted); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sec-title {
   padding: 16px 16px 6px; color: var(--green); font-size: 13px; font-weight: 600;

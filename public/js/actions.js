@@ -9,6 +9,7 @@ import { advance, repeatLabel } from './recurrence.js';
 import { isLocked, requireUnlock } from './lock.js';
 import { canPost, mentionsIn, myId } from './people.js';
 import { canUpload } from './storage.js';
+import { markRead } from './unread.js';
 import { api, resetLocal, syncNow, notifyUploads } from './data/sync.js';
 import { toast, closeSheet, confirmSheet, sheet, copyText } from './ui/dom.js';
 import { runAi, aiAvailable } from './ai.js';
@@ -32,6 +33,7 @@ export function openChat(id, highlightId = null) {
   S.selection.clear();
   buildMain();
   $('#app').classList.add('chat-open');
+  markRead(id);
   renderPane();
   if (highlightId) flash(highlightId);
   else if (!isMobile()) $('#composer-input')?.focus();

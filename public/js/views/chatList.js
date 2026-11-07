@@ -8,6 +8,7 @@ import { getStatus } from '../data/sync.js';
 import { avatar, catChip, empty } from '../ui/parts.js';
 import { isLocked, hiddenChatIds } from '../lock.js';
 import { isMine, nameOf } from '../people.js';
+import { unreadOf, viewing } from '../unread.js';
 
 function groupChipsHtml() {
   const chips = [['all', 'Todos'], ['pinned', 'Fijados'], ...[...S.groups].sort(byOrder).map((g) => [g.id, g.name])];
@@ -62,14 +63,14 @@ function chatList() {
 }
 
 export function chatRow(c) {
-  const last = lastOf(c.id), pending = pendingOf(c.id);
+  const last = lastOf(c.id), pending = pendingOf(c.id), unread = viewing(c.id) ? 0 : unreadOf(c);
   const who = c.shared && last && !isMine(last) ? `${nameOf(last.authorId)}: ` : '';
   const prev = isLocked(c) ? '<i>🔒 Chat bloqueado</i>' : last ? `${esc(who + summary(last))}` : `<i>${esc(c.desc || TYPES[c.type].hint)}</i>`;
   return `<div class="chat-row ${S.active === c.id ? 'on' : ''}" data-act="open-chat" data-id="${c.id}" role="button" tabindex="0">
     ${avatar(c)}
     <div class="cr-body">
-      <div class="cr-top"><span class="cr-name">${c.shared ? '<span class="shared-ic" title="Compartido">👥</span> ' : ''}${esc(c.name)}</span><span class="cr-time ${pending ? 'hl' : ''}">${last ? shortWhen(last.createdAt) : ''}</span></div>
-      <div class="cr-bot"><span class="cr-prev">${prev}</span>${c.locked ? `<span class="lock-ic" title="Bloqueado">${isLocked(c) ? '🔒' : '🔓'}</span>` : ''}${c.pinned && c.id !== 'general' ? ic('pin', 'tiny') : ''}${pending ? `<b class="badge" title="Tareas pendientes">${pending}</b>` : ''}</div>
+      <div class="cr-top"><span class="cr-name">${c.shared ? '<span class="shared-ic" title="Compartido">👥</span> ' : ''}${esc(c.name)}</span><span class="cr-time ${unread ? 'hl' : ''}">${last ? shortWhen(last.createdAt) : ''}</span></div>
+      <div class="cr-bot"><span class="cr-prev">${prev}</span>${c.locked ? `<span class="lock-ic" title="Bloqueado">${isLocked(c) ? '🔒' : '🔓'}</span>` : ''}${c.pinned && c.id !== 'general' ? ic('pin', 'tiny') : ''}${pending ? `<span class="cr-pending" title="${pending} tarea${pending > 1 ? 's' : ''} pendiente${pending > 1 ? 's' : ''}">☐ ${pending}</span>` : ''}${unread ? `<b class="badge ${c.muted ? 'muted' : ''}" title="Sin leer">${unread}</b>` : ''}</div>
     </div></div>`;
 }
 

@@ -161,7 +161,7 @@ function embedDoc(code) {
 <style>html{color-scheme:${dark ? 'dark' : 'light'}}body{margin:0;padding:10px;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:${dark ? '#e6e9e7' : '#111b21'};background:transparent;overflow-wrap:anywhere}</style>
 </head><body>
 ${code}
-<script>(function(){var last=-1;function send(){var d=document.documentElement,b=document.body;var h=Math.ceil(Math.max(d.scrollHeight,b?b.scrollHeight:0));if(h!==last){last=h;parent.postMessage(h,"*");}}addEventListener("load",send);if(window.ResizeObserver)new ResizeObserver(send).observe(document.documentElement);setTimeout(send,30);})();<\/script>
+<script>(function(){var last=-1;function send(){var b=document.body;if(!b)return;var h=b.getBoundingClientRect().height,y=scrollY;for(var i=0;i<b.children.length;i++){var r=b.children[i].getBoundingClientRect();if(r.bottom+y+10>h)h=r.bottom+y+10;}h=Math.ceil(h);if(h!==last){last=h;parent.postMessage(h,"*");}}addEventListener("load",send);if(window.ResizeObserver)new ResizeObserver(send).observe(document.body);setTimeout(send,30);})();<\/script>
 </body></html>`;
 }
 

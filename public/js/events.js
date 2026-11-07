@@ -340,6 +340,9 @@ function onEmbedMessage(e) {
   if (e.origin !== 'null') return; // los iframes aislados tienen origen opaco
   const frame = [...document.querySelectorAll('iframe.he-frame')].find((f) => f.contentWindow === e.source);
   if (!frame) return;
+  // En pantalla completa el alto lo pone la pantalla: no se guarda (al volver, el mensaje recupera su alto).
+  const holder = frame.closest('.html-embed');
+  if (holder && (holder.classList.contains('he-max') || document.fullscreenElement === holder)) return;
   const size = parseEmbedSize(e.data);
   if (!size) return;
   const prev = embedSizes.get(frame.dataset.key);

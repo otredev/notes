@@ -22,7 +22,7 @@ import { OWNER, COLORS } from './accounts.js';
 /* Margen para no perder escrituras que terminan en desorden entre peticiones simultáneas. */
 const PULL_OVERLAP_MS = 5000;
 const PERSONAL = {
-  chats: ['pinned', 'groupId', 'archived', 'locked', 'tags', 'muted'],
+  chats: ['pinned', 'groupId', 'archived', 'locked', 'tags', 'muted', 'readAt'],
   messages: ['starred', 'categoryId'],
 };
 const OWN_STORES = ['categories', 'groups', 'templates'];
