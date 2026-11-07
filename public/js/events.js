@@ -21,6 +21,15 @@ import { personDot, saveProfile, createDeviceLink, revokeSession, logout, invite
 import { restartLive } from './live.js';
 import { norm } from './utils.js';
 
+let msgClickTimer = null;
+document.addEventListener('dblclick', () => clearTimeout(msgClickTimer));
+
+/** ¿Hay texto seleccionado dentro de este elemento? */
+function textSelectedIn(el) {
+  const sel = window.getSelection?.();
+  return !!(sel && !sel.isCollapsed && sel.toString().trim() && el.contains(sel.anchorNode));
+}
+
 /* ---------- Bloques HTML en pantalla completa ---------- */
 function setFullIcon(box, on) {
   const b = box?.querySelector('[data-act=embed-full]');
@@ -119,7 +128,14 @@ const ACTIONS = {
     if (att) toggleAudio(att).catch((err) => toast(err.message || 'No se pudo reproducir'));
   },
   'cl-toggle': (el) => toggleItem(el.dataset.id, el.dataset.i),
-  msg: (el) => messageSheet(el.dataset.id),
+  // Si acabas de seleccionar texto del mensaje (para copiarlo), no se abre la ventana de edición.
+  // Con ratón se espera un instante: si es un doble clic para seleccionar una palabra, no se abre.
+  msg: (el) => {
+    if (textSelectedIn(el)) return;
+    if (!matchMedia('(pointer: fine)').matches) { messageSheet(el.dataset.id); return; }
+    clearTimeout(msgClickTimer);
+    msgClickTimer = setTimeout(() => { if (!textSelectedIn(el)) messageSheet(el.dataset.id); }, 260);
+  },
   send: () => send(),
   triage: () => triageSheet(),
 
@@ -381,11 +397,22 @@ function bindLongPress() {
     endSwipe(swipe && swipe.dx >= SWIPE_TRIGGER);
   });
   document.addEventListener('pointercancel', () => { clearTimeout(lpTimer); lpStart = null; endSwipe(false); });
+  /*
+   * Clic derecho: fuera de los mensajes no hay menú (salvo en los campos de texto, para pegar).
+   * En un mensaje: con texto seleccionado (o sobre un enlace) sale el menú normal para copiar;
+   * si no, selecciona el mensaje como siempre.
+   */
   document.addEventListener('contextmenu', (e) => {
-    const m = e.target.closest('.msg[data-id]');
-    if (!m) return;
+    const t = e.target;
+    if (t.closest?.('input, textarea, select, [contenteditable="true"]')) return;
+    const m = t.closest?.('.msg[data-id]');
+    if (m) {
+      if (textSelectedIn(m) || t.closest('a[href]')) return;
+      e.preventDefault();
+      if (!lpFired) toggleSel(m.dataset.id);
+      return;
+    }
     e.preventDefault();
-    if (!lpFired) toggleSel(m.dataset.id);
   });
 }
 

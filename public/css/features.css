@@ -215,3 +215,16 @@ body.he-max-open { overflow: hidden; }
 .person-row { flex-wrap: wrap; }
 .person-row .trash-acts { width: 100%; padding-left: 38px; flex-wrap: wrap; gap: 4px; }
 .person-row .trash-acts .btn { padding: 4px 10px; font-size: 13px; }
+
+/* ---------- Selección de texto: solo en los mensajes y en los campos ---------- */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable="true"],
+.msg .b-text, .msg .cl-item span, .msg .cl-line, .msg pre.code, .msg .poll-q, .msg .att-ai-text, .msg .he-src,
+.ocr-text, .readonly-note code {
+  -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+}
+.msg .b-text ::selection, .msg pre.code ::selection { background: color-mix(in srgb, var(--green) 45%, transparent); }
+/* En pantallas táctiles, mantener pulsado selecciona el mensaje (para copiar: selección → Copiar). */
+@media (pointer: coarse) {
+  .msg, .msg * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+}
