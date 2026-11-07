@@ -159,7 +159,9 @@ function parseRepeatArg(value) {
 }
 const REPEAT_ARG = { type: ['string', 'null'], description: 'Tarea recurrente: "cada día", "laborables", "cada semana", "cada lunes"…, "cada mes", "cada año". null para quitarla.' };
 
-const extractTags = (text) => [...new Set([...String(text).matchAll(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu)].map((x) => x[1].toLowerCase()))];
+/** #etiquetas del texto, sin contar lo que hay dentro de bloques de código (```…```), como colores #3e9d7c o selectores CSS. */
+const withoutCode = (t) => String(t).replace(/```[^\n]*\n?[\s\S]*?(?:\n```|$)/g, ' ').replace(/`[^`\n]*`/g, ' ');
+const extractTags = (text) => [...new Set([...withoutCode(text).matchAll(/(?:^|\s)#([\p{L}\p{N}_-]+)/gu)].map((x) => x[1].toLowerCase()))];
 
 /* ---------- Herramientas ---------- */
 const str = (description, extra = {}) => ({ type: 'string', description, ...extra });

@@ -5,6 +5,8 @@ import { S, settings, saveSettings, applyTheme } from './state.js';
 import { chatById, touch } from './data/store.js';
 import { syncNow, storeToken } from './data/sync.js';
 import { embedSizes, parseEmbedSize, insideFence } from './text.js';
+import { flushPendingRender } from './views/chat.js';
+import { ic } from './icons.js';
 import { applyFormat, formatShortcut } from './editor.js';
 import { vote, pollSheet } from './poll.js';
 import { templatePicker, templateSheet } from './sheets/template.js';
@@ -15,9 +17,34 @@ import { requireUnlock, lockNow, pinSetupSheet, enableBiometric, disableBiometri
 import { loadServer, loadBackups } from './views/server.js';
 import { localTz } from './recurrence.js';
 import { isShared, membersOf, myId } from './people.js';
-import { personDot, saveProfile, createDeviceLink, revokeSession, logout, inviteLink, loginLinkFor, setDisabled } from './views/account.js';
+import { personDot, saveProfile, createDeviceLink, revokeSession, logout, inviteLink, loginLinkFor, setDisabled, changePassword, newUserSheet, resetPasswordSheet, loadAccount } from './views/account.js';
 import { restartLive } from './live.js';
 import { norm } from './utils.js';
+
+/* ---------- Bloques HTML en pantalla completa ---------- */
+function setFullIcon(box, on) {
+  const b = box?.querySelector('[data-act=embed-full]');
+  if (b) { b.innerHTML = ic(on ? 'shrink' : 'expand', 'tiny'); b.title = on ? 'Salir de pantalla completa' : 'Pantalla completa'; b.setAttribute('aria-label', b.title); }
+}
+/** Sin Fullscreen API (iPhone): ocupa toda la ventana con CSS. */
+function closeMax() {
+  const box = document.querySelector('.html-embed.he-max');
+  if (!box) return false;
+  box.classList.remove('he-max');
+  document.body.classList.remove('he-max-open');
+  setFullIcon(box, false);
+  flushPendingRender();
+  return true;
+}
+function toggleEmbedFull(box) {
+  if (!box) return;
+  if (document.fullscreenElement === box) { document.exitFullscreen(); return; }
+  if (box.classList.contains('he-max')) { closeMax(); return; }
+  const maxi = () => { box.classList.add('he-max'); document.body.classList.add('he-max-open'); setFullIcon(box, true); };
+  if (document.fullscreenEnabled && box.requestFullscreen) box.requestFullscreen({ navigationUI: 'hide' }).then(() => setFullIcon(box, true)).catch(maxi);
+  else maxi();
+}
+export const exitEmbedFull = () => closeMax();
 
 /** Sugerencias de @menciones mientras escribes en un chat compartido. */
 function updateMentionBar(ta) {
@@ -170,6 +197,7 @@ const ACTIONS = {
     el.setAttribute('aria-pressed', settings.fmtBar);
     $('#composer-input')?.focus();
   },
+  'embed-full': (el) => toggleEmbedFull(el.closest('.html-embed')),
   'embed-code': (el) => {
     const src = el.closest('.html-embed')?.querySelector('.he-src');
     if (!src) return;
@@ -202,7 +230,10 @@ const ACTIONS = {
   'copy-input': (el) => copyText($(`#${el.dataset.v}`)?.value || ''),
   'sess-revoke': (el) => revokeSession(el.dataset.v).then(() => renderPane()),
   logout: () => logout(),
-  'ppl-invite': () => inviteLink().then((url) => { if (url) { toast('Enlace de invitación copiado (7 días, un solo uso)'); renderPane(); } }),
+  'ppl-invite': () => inviteLink().then((url) => { if (url) { toast('Código de invitación copiado (7 días, un solo uso)'); renderPane(); } }),
+  'ppl-new': () => newUserSheet(() => loadAccount().then(() => renderPane())),
+  'ppl-pass': (el) => resetPasswordSheet(el.dataset.v, el.dataset.n, () => loadAccount().then(() => renderPane())),
+  'pw-save': () => changePassword().then((ok) => ok && loadAccount().then(() => renderPane(true))),
   'ppl-link': (el) => loginLinkFor(el.dataset.v).then(() => { toast('Enlace de acceso copiado (30 min)'); renderPane(); }),
   'ppl-disable': (el) => {
     const on = el.dataset.on === '1';
@@ -361,6 +392,10 @@ function bindLongPress() {
 export function bindEvents() {
   bindLongPress();
   window.addEventListener('message', onEmbedMessage);
+  document.addEventListener('fullscreenchange', () => {
+    document.querySelectorAll('.html-embed').forEach((b) => setFullIcon(b, document.fullscreenElement === b));
+    if (!document.fullscreenElement) flushPendingRender();
+  });
   // Ir a una sección desde una ventana (p. ej. "Ver en Ajustes" del aviso de espacio).
   document.addEventListener('retrodark:goto', (e) => {
     S.nav = e.detail.nav; S.sub = e.detail.sub || null;
@@ -448,6 +483,7 @@ export function bindEvents() {
     }
     if ((e.key === 'Enter' || e.key === ' ') && t.matches?.('[role=button][data-act]')) { e.preventDefault(); t.click(); return; }
     if (e.key === 'Escape') {
+      if (closeMax()) return;
       if (isSheetOpen()) closeSheet();
       else if (S.selection.size) clearSel();
       else if (S.replyTo) cancelReply();

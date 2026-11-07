@@ -493,7 +493,7 @@ export function createRepo(db) {
   const users = () => db.collection('users');
   const sessions = () => db.collection('sessions');
   const invites = () => db.collection('invites');
-  const pub = (x) => x && ({ id: x._id, name: x.name, handle: x.handle, color: x.color, role: x._id === OWNER ? 'owner' : 'member', disabled: !!x.disabled });
+  const pub = (x) => x && ({ id: x._id, name: x.name, handle: x.handle, color: x.color, role: x._id === OWNER ? 'owner' : 'member', disabled: !!x.disabled, hasPassword: !!x.password });
 
   async function ensureOwner() {
     const o = await users().findOne({ _id: OWNER });
@@ -546,6 +546,22 @@ export function createRepo(db) {
   async function revokeAllSessions(userId) {
     for (const s of await sessions().find({ userId }).toArray()) { await sessions().updateOne({ _id: s._id }, { $set: { revoked: true } }); sessionCache.delete(s._id); }
   }
+  /* ---------- Contraseñas e intentos de entrada ---------- */
+  const findByHandle = async (handle) => (await users().find({}).toArray()).find((x) => x.handle === String(handle || '').toLowerCase().replace(/^@/, '')) || null;
+  async function setPassword(id, password) {
+    if (id === OWNER) await ensureOwner();
+    await users().updateOne({ _id: id }, { $set: { password, failCount: 0, lockUntil: 0 } });
+  }
+  const hasPassword = async (id) => !!(id === OWNER ? await ensureOwner() : await users().findOne({ _id: id }))?.password;
+  async function loginFailed(id) {
+    const x = await users().findOne({ _id: id });
+    const n = (x?.failCount || 0) + 1;
+    // A los 5 intentos fallidos, 5 minutos de espera (y se dobla cada 5 más).
+    const lockUntil = n % 5 === 0 ? Date.now() + 5 * 60e3 * 2 ** (n / 5 - 1) : x?.lockUntil || 0;
+    await users().updateOne({ _id: id }, { $set: { failCount: n, lockUntil } });
+  }
+  const loginOk = (id) => users().updateOne({ _id: id }, { $set: { failCount: 0, lockUntil: 0, lastLogin: Date.now() } });
+
   async function setDisabled(id, disabled) {
     if (id === OWNER) throw Object.assign(new Error('No puedes desactivar al propietario'), { status: 400 });
     await users().updateOne({ _id: id }, { $set: { disabled: !!disabled } });
@@ -635,6 +651,7 @@ export function createRepo(db) {
     onWrite, view, changesSince, applyChanges, updateMembers, userData, liveData, getMessageFor, getChat, getChatRaw,
     getResetAt, exportAll, wipe, replaceAll,
     ensureOwner, getUser, listUsers, activeUsers, handleTaken, createUser, updateUser, getUserPrefs, saveUserPrefs,
+    findByHandle, setPassword, hasPassword, loginFailed, loginOk,
     createSession, sessionActive, listSessions, revokeSession, revokeAllSessions, setDisabled, createInvite, takeInvite,
     saveSub, deleteSub, listSubs, getSub, dueReminders, markReminded,
     getServerSettings, saveServerSettings, claimDaily, getStorage, saveStorage, purgeTrash, usedFileIds,

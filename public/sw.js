@@ -1,5 +1,5 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'chatnote-v14';
+const CACHE = 'chatnote-v15';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
@@ -9,7 +9,7 @@ const ASSETS = [
   './js/data/idb.js', './js/data/store.js', './js/data/sync.js',
   './js/ui/dom.js', './js/ui/parts.js',
   './js/views/nav.js', './js/views/pane.js', './js/views/chatList.js', './js/views/tasks.js',
-  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js', './js/views/server.js', './js/views/account.js',
+  './js/views/organize.js', './js/views/settings.js', './js/views/chat.js', './js/views/docs.js', './js/views/trash.js', './js/views/server.js', './js/views/account.js', './js/views/auth.js',
   './js/sheets/message.js', './js/sheets/chat.js', './js/sheets/group.js', './js/sheets/category.js', './js/sheets/triage.js', './js/sheets/template.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png',
 ];

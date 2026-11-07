@@ -45,12 +45,12 @@ El Worker revisa los recordatorios cada minuto (`triggers.crons` en `wrangler.js
 
 ### Personas y chats compartidos
 
-Quien usa `APP_TOKEN` es el **propietario** (tus dispositivos de siempre siguen igual). Para usar ChatNote con más gente:
+Cada persona entra con **usuario y contraseña** (pantalla de inicio de sesión). El **propietario** es la cuenta `propietario`: entra la primera vez con `APP_TOKEN` ("Entrar con la clave del servidor"), crea su contraseña en **Ajustes → Cuenta** y desde ahí ya puede entrar con usuario y contraseña. `APP_TOKEN` sigue siendo la llave maestra (asistente MCP, emergencias).
 
-1. **Ajustes → Personas → Invitar a alguien**: se copia un enlace (`…/?join=…`, 7 días, un solo uso). Quien lo abre elige su nombre y su usuario, y ese dispositivo queda con su propia sesión (sin contraseñas). Cada persona tiene sus propias notas, categorías y plantillas.
+1. **Ajustes → Personas → Código de invitación** (7 días, un solo uso): con él, la persona pulsa **Crear cuenta** y elige nombre, usuario y contraseña. También puedes enviarle el enlace `…/?join=CÓDIGO`, que abre el formulario con el código puesto. O bien **Crear cuenta** tú mismo y darle usuario y contraseña. Cada persona tiene sus propias notas, categorías y plantillas.
 2. En la **información de un chat → Añadir persona** lo compartes. Los administradores cambian nombre e icono, añaden o sacan gente y pueden activar **"Solo los administradores pueden enviar"** (lo hace cumplir el servidor).
 3. Los mensajes de otros solo los edita quien los escribió; los demás pueden marcar casillas, completar tareas y votar en las encuestas (cada uno su voto). `@usuario` menciona y avisa.
-4. **Ajustes → Cuenta → Vincular otro dispositivo** crea un enlace de 30 minutos para entrar desde otro móvil u ordenador. El propietario puede crear enlaces de acceso o desactivar a cualquiera en **Personas**.
+4. Cada uno cambia su contraseña en **Ajustes → Cuenta**, donde también puede cerrar sesión en otros dispositivos o crear un enlace de 30 minutos para entrar sin escribirla. En **Personas**, el propietario restablece contraseñas (cierra las sesiones de esa persona), crea enlaces de acceso o desactiva cuentas. Tras 5 intentos fallidos de contraseña hay que esperar unos minutos.
 
 Los cambios llegan **en tiempo real** por WebSocket (Durable Object). Las cuentas necesitan `APP_TOKEN`; con el servidor local (`npm start`) no hay tiempo real (sincroniza cada 30 s).
 
@@ -154,7 +154,8 @@ El resto de archivos (`public/`) los sirve Cloudflare directamente. En local, `s
 | Método | Ruta | Para qué |
 |---|---|---|
 | `GET` | `/api/health` | Comprobar que el servidor responde |
-| `POST` | `/api/auth/join` · `/api/auth/redeem` | Unirse con una invitación · vincular un dispositivo (sin sesión) |
+| `POST` | `/api/auth/login` · `/api/auth/register` · `/api/auth/redeem` | Entrar con usuario y contraseña · crear cuenta con código · vincular con enlace (sin sesión) |
+| `POST` | `/api/auth/password` · `/api/users/create` · `/api/users/password` | Cambiar tu contraseña · crear cuenta · restablecer contraseña (propietario) |
 | `POST` | `/api/auth/invite` · `/api/auth/link` · `/api/auth/logout` | Crear invitación (propietario) · enlace de dispositivo · cerrar sesión |
 | `GET` · `POST` | `/api/me` · `GET /api/people` | Tu perfil · personas de ChatNote |
 | `GET` · `POST` | `/api/sessions` · `/api/sessions/revoke` | Tus dispositivos |

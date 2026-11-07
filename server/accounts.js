@@ -1,10 +1,10 @@
 /*
  * Cuentas y sesiones.
  *
- * - Quien usa APP_TOKEN es el propietario ("owner"): así siguen funcionando los dispositivos de siempre.
- * - El propietario invita a otras personas con un enlace de un solo uso (?join=CÓDIGO). Al abrirlo,
- *   la persona elige su nombre y ese dispositivo queda con su sesión. Sin contraseñas.
- * - Para usar la cuenta en otro dispositivo se genera un enlace de vinculación (?login=CÓDIGO).
+ * - Cada persona entra con su usuario y contraseña (también el propietario, "owner").
+ * - Para crear una cuenta hace falta un código de invitación que genera el propietario (o él crea la cuenta).
+ * - APP_TOKEN sigue valiendo como llave maestra del propietario (asistente MCP, emergencias).
+ * - Un enlace de un solo uso (?login=CÓDIGO) también vincula un dispositivo sin escribir la contraseña.
  * - Las sesiones son tokens firmados: rd1.<usuario>.<sesión>.<firma> (HMAC con APP_TOKEN).
  *   La firma se comprueba sin base de datos (archivos, IA) y la API además comprueba que la sesión siga activa.
  */
@@ -57,7 +57,8 @@ export async function identify(appToken, auth) {
 /** Igual que identify, y además comprueba en la base de datos que la sesión y el usuario sigan activos. */
 export async function authenticate(appToken, auth, repo) {
   const who = await identify(appToken, auth);
-  if (!who || who.id === OWNER) return who;
+  // APP_TOKEN (sin sesión) no se comprueba en la base de datos; las sesiones, siempre (también las del propietario).
+  if (!who || !who.sid) return who;
   const ok = await repo.sessionActive(who.id, who.sid);
   return ok ? who : null;
 }
@@ -79,6 +80,31 @@ export function cleanProfile(body = {}) {
     out.color = body.color;
   }
   return out;
+}
+
+/* ---------- Contraseñas (PBKDF2-SHA256; Workers admite hasta 100 000 iteraciones) ---------- */
+export const PASS_ITER = 100000;
+export const MIN_PASS = 8;
+
+export function checkPassword(p) {
+  if (typeof p !== 'string' || p.length < MIN_PASS) throw Object.assign(new Error(`La contraseña debe tener al menos ${MIN_PASS} caracteres`), { status: 400 });
+  if (p.length > 200) throw Object.assign(new Error('Contraseña demasiado larga'), { status: 400 });
+}
+
+async function derive(password, salt, iterations) {
+  const key = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits']);
+  return b64url(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256));
+}
+
+export async function hashPassword(password) {
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  return { salt: b64url(salt), hash: await derive(password, salt, PASS_ITER), iter: PASS_ITER };
+}
+
+export async function verifyPassword(password, stored) {
+  if (!stored?.hash || typeof password !== 'string') return false;
+  const salt = Uint8Array.from(atob(stored.salt.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((stored.salt.length + 3) % 4)), (c) => c.charCodeAt(0));
+  return sameText(await derive(password, salt, stored.iter || PASS_ITER), stored.hash);
 }
 
 /** Usuario sugerido a partir del nombre ("Ana María" → "ana_maria"). */

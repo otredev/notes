@@ -22,7 +22,9 @@ import { loadMe, onMe, onRejected } from './data/sync.js';
 import { initPeople } from './people.js';
 import { startLive } from './live.js';
 import { checkStorageOnStart, storageBarsHtml } from './storage.js';
-import { joinSheet, loginSheet } from './views/account.js';
+import { loginSheet } from './views/account.js';
+import { showAuth, accountsEnabled } from './views/auth.js';
+import { onAuthRequired } from './data/sync.js';
 import { initBackNav } from './backnav.js';
 import { openChat, gotoMsg, closeChat, addFiles } from './actions.js';
 
@@ -37,6 +39,17 @@ async function init() {
   }
 
   await loadMe();
+  // Si el servidor usa cuentas y este dispositivo no tiene sesión: solo la pantalla de entrada
+  // (sin crear datos de ejemplo, que luego se subirían a la cuenta).
+  if (!settings.token && (await accountsEnabled()) === true) {
+    const q = new URLSearchParams(location.search);
+    history.replaceState(null, '', location.pathname);
+    S.hadLocalData = S.chats.length > 0;
+    if (q.get('login')) loginSheet(q.get('login'));
+    else showAuth({ mode: q.get('join') ? 'register' : 'login', code: q.get('join') || '' });
+    return;
+  }
+  onAuthRequired(() => showAuth({ reason: settings.token ? 'Tu sesión se cerró o la clave no es válida. Vuelve a entrar.' : '' }));
   initPeople();
   onMe(() => { initPeople(); refreshAll(); if (S.nav === 'settings') renderPane(true); });
   onRejected((list) => toast(`⚠️ ${list[0].reason}${list.length > 1 ? ` (y ${list.length - 1} más)` : ''}`));
@@ -107,7 +120,7 @@ async function init() {
  *   ?share=1 → lo compartido (texto, enlace, archivos) va al cuadro de texto de General
  */
 async function openFromParams(params) {
-  if (params.get('join')) { joinSheet(params.get('join')); return; }
+  if (params.get('join')) { showAuth({ mode: 'register', code: params.get('join') }); return; }
   if (params.get('login')) { loginSheet(params.get('login')); return; }
   const nav = params.get('nav');
   if (nav && ['chats', 'tasks', 'org', 'settings'].includes(nav)) {

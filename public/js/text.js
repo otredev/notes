@@ -169,7 +169,7 @@ function htmlEmbed(code, key) {
   const size = embedSizes.get(key);
   const style = size?.pct ? `height:auto;aspect-ratio:100 / ${size.pct}` : `height:${size?.px || 160}px`;
   return `<div class="html-embed" data-key="${esc(key)}">
-    <div class="he-head">${ic('code', 'tiny')}<span>HTML</span><button class="he-toggle" data-act="embed-code">Ver código</button></div>
+    <div class="he-head">${ic('code', 'tiny')}<span>HTML</span><button class="he-toggle" data-act="embed-code">Ver código</button><button class="he-toggle he-full" data-act="embed-full" title="Pantalla completa" aria-label="Pantalla completa">${ic('expand', 'tiny')}</button></div>
     <iframe class="he-frame" data-key="${esc(key)}" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" title="Bloque HTML" style="${style}" srcdoc="${esc(embedDoc(code))}"></iframe>
     <pre class="code he-src" hidden><code>${esc(code)}</code></pre></div>`;
 }

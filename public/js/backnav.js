@@ -16,6 +16,7 @@ import { sheet, closeSheet, isSheetOpen, toast } from './ui/dom.js';
 import { renderNav } from './views/nav.js';
 import { renderPane } from './views/pane.js';
 import { closeChat, clearSel } from './actions.js';
+import { exitEmbedFull } from './events.js';
 
 let guarded = false;   // hay una entrada "guarda" en el historial
 let asking = false;    // se está mostrando "¿Salir?"
@@ -32,6 +33,7 @@ function backInsideApp() {
   if (isSheetOpen()) { closeSheet(); return true; }
   if (S.selection.size) { clearSel(); return true; }
   if (isMobile() && $('#app').classList.contains('chat-open')) { closeChat(); return true; }
+  if (document.querySelector('.html-embed.he-max')) { exitEmbedFull(); return true; }
   if (S.sub) { S.sub = null; renderPane(true); return true; }
   if (S.search) { S.search = ''; renderPane(true); return true; }
   if (S.nav !== 'chats') { S.nav = 'chats'; renderNav(); renderPane(true); return true; }

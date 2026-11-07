@@ -26,11 +26,17 @@ function setStatus(patch) {
 }
 
 /* ---------- API ---------- */
+const authListeners = new Set();
+/** El servidor pidió iniciar sesión (401). */
+export const onAuthRequired = (fn) => authListeners.add(fn);
 export async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (settings.token) headers.Authorization = `Bearer ${settings.token}`;
   const res = await fetch(`api/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  if (res.status === 401) throw Object.assign(new Error('Clave de acceso incorrecta'), { auth: true });
+  if (res.status === 401) {
+    authListeners.forEach((fn) => fn());
+    throw Object.assign(new Error(settings.token ? 'Tu sesión ya no es válida: vuelve a entrar' : 'Inicia sesión para sincronizar'), { auth: true });
+  }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error || `Error ${res.status}`);

@@ -183,3 +183,35 @@ details.howto li { margin: 6px 0; }
 .st-bar i { display: block; height: 100%; border-radius: 6px; background: var(--green); transition: width .4s ease; }
 .st-bar.warn i { background: var(--warn); }
 .st-bar.full i { background: var(--danger); }
+
+/* ===================== Entrar, cuentas y pantalla completa ===================== */
+#auth {
+  position: fixed; inset: 0; z-index: 900; display: grid; place-items: center; padding: 16px; overflow-y: auto;
+  background: radial-gradient(ellipse at top, color-mix(in srgb, var(--green) 18%, var(--bg)) 0%, var(--bg) 60%);
+}
+body.auth-open #app { visibility: hidden; }
+.au-card { width: min(400px, 100%); padding: 28px 22px 18px; border-radius: 22px; background: var(--panel); border: 1px solid var(--glass-border, var(--line)); box-shadow: 0 20px 60px rgba(0, 0, 0, .35); }
+.au-logo { width: 56px; height: 56px; margin: 0 auto 8px; display: grid; place-items: center; border-radius: 18px; background: var(--emerald-tint, var(--soft)); color: var(--green); }
+.au-logo .ic { width: 30px; height: 30px; }
+.au-card h1 { text-align: center; margin: 0 0 14px; font-size: 26px; letter-spacing: -.02em; }
+.au-card h1 em { font-style: normal; color: var(--green); }
+.au-reason { text-align: center; font-size: 13.5px; color: var(--warn); margin: -6px 0 12px; }
+.au-tabs { margin-bottom: 6px; }
+.au-tabs button { flex: 1; }
+.au-card form .btn.wide { margin-top: 10px; padding: 11px; font-size: 15px; }
+.au-master { margin-top: 16px; font-size: 13px; color: var(--muted); }
+.au-master summary { cursor: pointer; text-align: center; }
+.code-input { font-family: ui-monospace, Consolas, monospace; letter-spacing: .08em; }
+
+/* Bloques HTML a pantalla completa */
+.he-full { padding: 2px 4px; display: inline-grid; place-items: center; }
+.html-embed:fullscreen, .html-embed.he-max { display: flex; flex-direction: column; margin: 0; border: 0; border-radius: 0; background: var(--bg); }
+.html-embed.he-max { position: fixed; inset: 0; z-index: 950; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
+.html-embed:fullscreen .he-head, .html-embed.he-max .he-head { padding: 8px 10px 8px 14px; font-size: 13px; }
+.html-embed:fullscreen .he-full, .html-embed.he-max .he-full { color: var(--text); background: var(--soft); padding: 6px 8px; }
+.html-embed:fullscreen .he-frame, .html-embed.he-max .he-frame { flex: 1; height: auto !important; aspect-ratio: auto !important; max-height: none; min-height: 0; }
+.html-embed:fullscreen .he-src, .html-embed.he-max .he-src { max-height: 40vh; overflow: auto; }
+body.he-max-open { overflow: hidden; }
+.person-row { flex-wrap: wrap; }
+.person-row .trash-acts { width: 100%; padding-left: 38px; flex-wrap: wrap; gap: 4px; }
+.person-row .trash-acts .btn { padding: 4px 10px; font-size: 13px; }

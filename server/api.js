@@ -2,11 +2,14 @@
  * API de ChatNote, independiente del servidor.
  * La usan tanto el Worker de Cloudflare (worker/index.js) como Express (server/app.js).
  *
- * Sin sesión:  GET /health · POST /auth/join (unirse con invitación) · POST /auth/redeem (vincular dispositivo)
+ * Sin sesión:  GET /health · POST /auth/login (usuario + contraseña) · POST /auth/register (con código de invitación)
+ *              POST /auth/redeem (vincular dispositivo con un enlace)
  * Con sesión (APP_TOKEN = propietario, o token de sesión de cada persona):
  *   POST /sync                    subir cambios y recibir los del servidor (solo lo que puedes ver)
  *   GET|POST /me, GET /people     tu perfil y las personas de ChatNote
- *   POST /auth/invite             (propietario) enlace para que alguien se una
+ *   POST /auth/invite             (propietario) código / enlace para que alguien cree su cuenta
+ *   POST /auth/password           cambiar tu contraseña
+ *   POST /users/create, /users/password   (propietario) crear cuentas y restablecer contraseñas
  *   POST /auth/link               enlace para usar tu cuenta en otro dispositivo
  *   GET /sessions, POST /sessions/revoke, POST /auth/logout
  *   GET /users, POST /users/disable          (propietario) personas y acceso
@@ -23,7 +26,7 @@ import { feedKey } from '../public/js/calendar.js';
 import { withDefaults, cleanPatch, validTz, USER_KEYS, GLOBAL_KEYS } from './settings.js';
 import { sendSummary } from './daily.js';
 import { handleBackups } from './backups.js';
-import { OWNER, authenticate, identify, signToken, randomId, cleanProfile, suggestHandle, COLORS } from './accounts.js';
+import { OWNER, authenticate, identify, signToken, randomId, cleanProfile, suggestHandle, COLORS, checkPassword, hashPassword, verifyPassword } from './accounts.js';
 import { storageState } from './storage.js';
 
 /** Posponer desde la notificación. */
@@ -63,7 +66,7 @@ async function settingsFor(repo, u, ctx) {
 }
 
 async function profile(repo, u) {
-  const people = (await repo.activeUsers()).map(({ disabled, ...p }) => p);
+  const people = (await repo.activeUsers()).map(({ disabled, hasPassword, ...p }) => p);
   return { me: await repo.getUser(u), people };
 }
 
@@ -77,31 +80,55 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
   const defaultTz = ctx.tz || 'UTC';
   if (method === 'GET' && path === '/health') return json(200, { ok: true, auth: !!token });
 
-  /* ---------- Sin sesión: unirse y vincular dispositivos ---------- */
-  if (method === 'POST' && (path === '/auth/join' || path === '/auth/redeem')) {
+  /* ---------- Sin sesión: entrar, crear cuenta y vincular dispositivos ---------- */
+  if (method === 'GET' && path === '/auth/status') {
+    return json(200, { accounts: !!token });
+  }
+  if (method === 'POST' && ['/auth/login', '/auth/register', '/auth/join', '/auth/redeem'].includes(path)) {
     if (!token) return json(400, { error: 'El servidor no tiene APP_TOKEN: las cuentas están desactivadas' });
     const repo = await getRepo();
-    const code = String(body?.code || '');
-    if (path === '/auth/join') {
+    const code = String(body?.code || '').trim();
+    const newSession = async (uid) => {
+      const sid = randomId(16);
+      await repo.createSession(uid, sid, userAgent);
+      return { token: await signToken(token, uid, sid), me: await repo.getUser(uid) };
+    };
+
+    if (path === '/auth/login') {
+      const generic = json(401, { error: 'Usuario o contraseña incorrectos' });
+      await repo.ensureOwner();
+      const x = await repo.findByHandle(body?.handle);
+      if (!x) return generic;
+      if (x.disabled) return json(403, { error: 'Esta cuenta está desactivada. Habla con el propietario.' });
+      if ((x.lockUntil || 0) > Date.now()) return json(429, { error: `Demasiados intentos. Espera ${Math.ceil((x.lockUntil - Date.now()) / 60e3)} min.` });
+      if (!x.password) return json(401, { error: x._id === OWNER ? 'Aún no tienes contraseña: entra con la clave del servidor (APP_TOKEN) y créala en Ajustes → Cuenta' : 'Esta cuenta no tiene contraseña: pide al propietario que te la ponga' });
+      if (!(await verifyPassword(String(body?.password || ''), x.password))) { await repo.loginFailed(x._id); return generic; }
+      await repo.loginOk(x._id);
+      return json(200, await newSession(x._id));
+    }
+
+    if (path === '/auth/register' || path === '/auth/join') {
       let p;
-      try { p = cleanProfile({ name: body?.name, handle: body?.handle || suggestHandle(body?.name || '') }); } catch (err) { return fail(err); }
+      try {
+        p = cleanProfile({ name: body?.name, handle: body?.handle || suggestHandle(body?.name || '') });
+        // /auth/join (enlaces antiguos) no pedía contraseña; ahora sí.
+        checkPassword(body?.password);
+      } catch (err) { return fail(err); }
       if (await repo.handleTaken(p.handle)) return json(409, { error: `El usuario @${p.handle} ya existe; elige otro` });
       const inv = await repo.takeInvite(code, 'join');
-      if (!inv) return json(410, { error: 'La invitación no es válida o ya se usó' });
-      const uid = randomId(10), sid = randomId(16);
+      if (!inv) return json(410, { error: 'El código de invitación no es válido, caducó o ya se usó' });
+      const uid = randomId(10);
       const color = COLORS[(await repo.listUsers()).length % COLORS.length];
-      const me = await repo.createUser(uid, { ...p, color, invitedBy: inv.createdBy });
-      await repo.createSession(uid, sid, userAgent);
+      await repo.createUser(uid, { ...p, color, invitedBy: inv.createdBy });
+      await repo.setPassword(uid, await hashPassword(body.password));
       if (inv.chatId) await repo.updateMembers(inv.createdBy, { chatId: inv.chatId, add: [uid] }).catch(() => {});
-      return json(200, { token: await signToken(token, uid, sid), me });
+      return json(200, await newSession(uid));
     }
     const inv = await repo.takeInvite(code, 'login');
     if (!inv) return json(410, { error: 'El enlace no es válido, caducó o ya se usó' });
     const me = await repo.getUser(inv.userId);
     if (!me || me.disabled) return json(403, { error: 'Esa cuenta está desactivada' });
-    const sid = randomId(16);
-    await repo.createSession(inv.userId, sid, userAgent);
-    return json(200, { token: await signToken(token, inv.userId, sid), me });
+    return json(200, await newSession(inv.userId));
   }
 
   /* ---------- A partir de aquí, hace falta sesión ---------- */
@@ -156,14 +183,46 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
     case 'POST /auth/link': {
       if (!token) return json(400, { error: 'Configura APP_TOKEN en el servidor para usar cuentas' });
       const target = isOwner && typeof body?.userId === 'string' ? body.userId : u;
-      if (target === OWNER) return json(400, { error: 'El propietario entra con APP_TOKEN (Ajustes → Sincronización)' });
       if (!(await repo.getUser(target))) return json(404, { error: 'No existe esa persona' });
       const code = randomId(20);
       await repo.createInvite({ code, type: 'login', userId: target, createdBy: u, expiresAt: Date.now() + LINK_MINUTES * 60e3 });
       return json(200, { code, expiresAt: Date.now() + LINK_MINUTES * 60e3 });
     }
+    case 'POST /auth/password': {
+      try { checkPassword(body?.password); } catch (err) { return fail(err); }
+      // Con la clave maestra (APP_TOKEN) el propietario no necesita la contraseña actual.
+      if (who.sid && await repo.hasPassword(u)) {
+        const x = isOwner ? await repo.ensureOwner() : await repo.findByHandle((await repo.getUser(u)).handle);
+        if (!(await verifyPassword(String(body?.current || ''), x.password))) return json(403, { error: 'La contraseña actual no es correcta' });
+      }
+      await repo.setPassword(u, await hashPassword(body.password));
+      return json(200, { ok: true });
+    }
+    case 'POST /users/create': {
+      if (!token) return json(400, { error: 'Configura APP_TOKEN en el servidor para usar cuentas' });
+      if (!isOwner) return ownerOnly();
+      let p;
+      try { p = cleanProfile({ name: body?.name, handle: body?.handle || suggestHandle(body?.name || '') }); checkPassword(body?.password); } catch (err) { return fail(err); }
+      if (await repo.handleTaken(p.handle)) return json(409, { error: `El usuario @${p.handle} ya existe` });
+      const uid = randomId(10);
+      const color = COLORS[(await repo.listUsers()).length % COLORS.length];
+      await repo.createUser(uid, { ...p, color, invitedBy: u });
+      await repo.setPassword(uid, await hashPassword(body.password));
+      return json(200, { user: await repo.getUser(uid) });
+    }
+    case 'POST /users/password': {
+      if (!isOwner) return ownerOnly();
+      const id = String(body?.id || '');
+      if (id === OWNER) return json(400, { error: 'Tu contraseña se cambia en Ajustes → Cuenta' });
+      if (!(await repo.getUser(id))) return json(404, { error: 'No existe esa persona' });
+      try { checkPassword(body?.password); } catch (err) { return fail(err); }
+      await repo.setPassword(id, await hashPassword(body.password));
+      // Por seguridad, sus dispositivos tienen que volver a entrar.
+      await repo.revokeAllSessions(id);
+      return json(200, { ok: true });
+    }
     case 'GET /sessions':
-      return json(200, { sessions: (await repo.listSessions(u)).map((s) => ({ ...s, current: s.id === who.sid })) });
+      return json(200, { sessions: (await repo.listSessions(u)).map((s) => ({ ...s, current: s.id === who.sid })), viaAppToken: !who.sid });
     case 'POST /sessions/revoke': {
       const ok = await repo.revokeSession(u, String(body?.id || ''));
       return ok ? json(200, { ok: true }) : json(404, { error: 'No existe esa sesión' });

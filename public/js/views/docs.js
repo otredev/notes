@@ -65,6 +65,7 @@ export function docsPaneHtml() {
         <li>Corre en un <code>iframe</code> con <code>sandbox="allow-scripts"</code> y <b>sin</b> <code>allow-same-origin</code>: puede usar HTML, CSS y JavaScript, pero no puede leer la app, tus notas, cookies ni el almacenamiento.</li>
         <li>Tampoco puede abrir ventanas, enviar formularios, navegar la app ni pedir permisos (cámara, ubicación…).</li>
         <li>Lo único que puede comunicar es su <b>tamaño</b>. La app solo lo acepta si viene de ese iframe y es un número (alto en px, entre 24 y 3000) o un porcentaje como <code>"56.25%"</code> (alto respecto al ancho, hasta 300 %). Cualquier otro mensaje se ignora.</li>
+        <li>El botón ${ic('expand', 'tiny')} de la esquina superior lo abre a <b>pantalla completa</b> (Esc, Atrás o el mismo botón para salir). Tu contenido conserva su tamaño y tiene todo el ancho; no uses <code>100vh</code> (en el chat el bloque crecería sin parar).</li>
         <li>El alto se ajusta solo. Si quieres fijarlo tú: <code>parent.postMessage(400, "*")</code> o <code>parent.postMessage("56.25%", "*")</code>.</li>
         <li>Sin conexión, lo que cargue de internet (imágenes, scripts de un CDN) no aparecerá.</li>
         <li>En vistas previas, citas y búsquedas el bloque se muestra como <span class="he-chip">${ic('code', 'tiny')} Bloque HTML</span>. "Ver código" en la cabecera muestra el código.</li>
@@ -110,7 +111,11 @@ export function docsPaneHtml() {
 
     <div class="sec-title">Personas y chats compartidos</div>
     ${table([
-      ['Ajustes → Personas → Invitar', 'El propietario crea un enlace (7 días, un solo uso). Quien lo abre elige su nombre y entra con sus propias notas'],
+      ['Entrar', 'Con tu usuario y contraseña. Tras 5 intentos fallidos hay que esperar unos minutos'],
+      ['Ajustes → Personas → Código de invitación', 'El propietario genera un código (7 días, un solo uso). Con él, la persona crea su cuenta en "Crear cuenta"'],
+      ['Ajustes → Personas → Crear cuenta', 'El propietario crea la cuenta y le da el usuario y la contraseña'],
+      ['Ajustes → Personas → Contraseña', 'Pone una contraseña nueva a alguien y cierra sus sesiones'],
+      ['Ajustes → Cuenta → Contraseña', 'Crea o cambia tu contraseña'],
       ['Información del chat → Añadir persona', 'Comparte ese chat. Quien entra ve todo su historial'],
       ['Admin', 'Cambia nombre e icono, añade o saca personas y decide quién es admin'],
       ['Solo los administradores pueden enviar', 'Los demás pueden leer, marcar casillas y votar, pero no escribir (lo comprueba el servidor)'],

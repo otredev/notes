@@ -289,9 +289,15 @@ function bubble(m, replies) {
     </div></div>`;
 }
 
+/** Mientras un bloque HTML está en pantalla completa no se redibuja (se perdería); se hace al salir. */
+let renderPending = false;
+export const embedMaximized = () => !!(document.querySelector('.html-embed.he-max') || document.fullscreenElement?.classList?.contains('html-embed'));
+export function flushPendingRender() { if (renderPending) { renderPending = false; renderMessages(); } }
+
 export function renderMessages(stick = false) {
   const box = $('#messages');
   if (!box) return;
+  if (embedMaximized()) { renderPending = true; return; }
   const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
   const prevTop = box.scrollTop;
   const c = chatById(S.active);
