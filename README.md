@@ -45,7 +45,15 @@ El Worker revisa los recordatorios cada minuto (`triggers.crons` en `wrangler.js
 
 ### Personas y chats compartidos
 
-Cada persona entra con **usuario y contraseña** (pantalla de inicio de sesión). El **propietario** es la cuenta `propietario`: entra la primera vez con `APP_TOKEN` ("Entrar con la clave del servidor"), crea su contraseña en **Ajustes → Cuenta** y desde ahí ya puede entrar con usuario y contraseña. `APP_TOKEN` sigue siendo la llave maestra (asistente MCP, emergencias).
+Cada persona entra con **usuario y contraseña** (pantalla de inicio de sesión). El **propietario** es la cuenta `propietario`. La primera vez (o si olvidas la contraseña) se la pones con `APP_TOKEN` desde una terminal:
+
+```bash
+curl -X POST https://retrodark.<tu-subdominio>.workers.dev/api/auth/password \
+  -H "Authorization: Bearer TU_APP_TOKEN" -H "Content-Type: application/json" \
+  -d '{"password":"tu-contraseña-nueva"}'
+```
+
+Después entras con usuario `propietario` y esa contraseña (puedes cambiar el usuario en **Ajustes → Cuenta**). `APP_TOKEN` no se usa en la pantalla de entrada: sirve para el asistente MCP, para firmar las sesiones y como llave de emergencia.
 
 1. **Ajustes → Personas → Código de invitación** (7 días, un solo uso): con él, la persona pulsa **Crear cuenta** y elige nombre, usuario y contraseña. También puedes enviarle el enlace `…/?join=CÓDIGO`, que abre el formulario con el código puesto. O bien **Crear cuenta** tú mismo y darle usuario y contraseña. Cada persona tiene sus propias notas, categorías y plantillas.
 2. En la **información de un chat → Añadir persona** lo compartes. Los administradores cambian nombre e icono, añaden o sacan gente y pueden activar **"Solo los administradores pueden enviar"** (lo hace cumplir el servidor).

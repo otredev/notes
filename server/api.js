@@ -103,7 +103,7 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
       if (!x) return generic;
       if (x.disabled) return json(403, { error: 'Esta cuenta está desactivada. Habla con el propietario.' });
       if ((x.lockUntil || 0) > Date.now()) return json(429, { error: `Demasiados intentos. Espera ${Math.ceil((x.lockUntil - Date.now()) / 60e3)} min.` });
-      if (!x.password) return json(401, { error: x._id === OWNER ? 'Aún no tienes contraseña: entra con la clave del servidor (APP_TOKEN) y créala en Ajustes → Cuenta' : 'Esta cuenta no tiene contraseña: pide al propietario que te la ponga' });
+      if (!x.password) return json(401, { error: x._id === OWNER ? 'Aún no tienes contraseña: créala con la clave del servidor (APP_TOKEN), como explica el README' : 'Esta cuenta no tiene contraseña: pide al propietario que te la ponga' });
       if (!(await verifyPassword(String(body?.password || ''), x.password))) { await repo.loginFailed(x._id); return generic; }
       await repo.loginOk(x._id);
       return json(200, await newSession(x._id));

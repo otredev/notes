@@ -57,10 +57,6 @@ export function showAuth({ mode = 'login', code = '', reason = '' } = {}) {
       <button class="btn primary wide" type="submit">Crear cuenta</button>
     </form>
 
-    <details class="au-master"><summary>Entrar con la clave del servidor (APP_TOKEN)</summary>
-      <form id="au-token"><label class="field"><span>Clave</span><input id="au-tok" type="password" autocomplete="off"></label>
-      <button class="btn outline wide" type="submit">Entrar como propietario</button></form>
-    </details>
   </div>`;
   document.body.append(el);
   document.body.classList.add('auth-open');
@@ -96,14 +92,6 @@ export function showAuth({ mode = 'login', code = '', reason = '' } = {}) {
       await done(r);
     } catch (err) { toast(err.message); busy(f, false); }
   });
-  $('#au-token', el).addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const tok = $('#au-tok', el).value.trim();
-    if (!tok) return;
-    const res = await fetch('api/me', { headers: { Authorization: `Bearer ${tok}` } }).catch(() => null);
-    if (!res?.ok) { toast('Esa clave no es correcta'); return; }
-    await switchAccount(tok, { keepLocal: !settings.token && !!S.hadLocalData });
-  });
 
   switchTab(code ? 'register' : mode);
 }
@@ -114,7 +102,5 @@ function switchTab(mode) {
   el.querySelectorAll('[data-au]').forEach((b) => b.classList.toggle('on', b.dataset.au === mode));
   $('#au-login', el).hidden = mode !== 'login';
   $('#au-register', el).hidden = mode !== 'register';
-  // La clave del servidor (solo para el propietario) no tiene sentido al crear una cuenta.
-  $('.au-master', el).hidden = mode !== 'login';
   setTimeout(() => (mode === 'login' ? $('#au-user', el) : $('#au-code', el).value ? $('#au-name', el) : $('#au-code', el)).focus(), 50);
 }
