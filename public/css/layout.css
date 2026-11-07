@@ -1,4 +1,4 @@
-/* RetroDark — Estructura general */
+/* ChatNote — Estructura general */
 /* ---------- Estructura ---------- */
 #app {
   display: grid; grid-template-columns: 64px minmax(320px, 30%) 1fr;

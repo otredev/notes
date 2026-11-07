@@ -1,4 +1,4 @@
-/* RetroDark — Chat abierto: cabecera, burbujas y cuadro de texto */
+/* ChatNote — Chat abierto: cabecera, burbujas y cuadro de texto */
 /* ---------- Chat ---------- */
 .chat-head {
   display: flex; align-items: center; gap: 6px; padding: 8px 10px 8px 16px; min-height: 60px;

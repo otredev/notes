@@ -1,5 +1,5 @@
 /*
- * Servidor MCP (Model Context Protocol) de RetroDark.
+ * Servidor MCP (Model Context Protocol) de ChatNote.
  *
  * Permite que un asistente de IA (Claude Code, Claude Desktop, claude.ai u otro cliente MCP)
  * lea y gestione tus chats, notas y tareas. Transporte "Streamable HTTP" sin estado:
@@ -15,8 +15,8 @@ import { tokenOk } from './api.js';
 import { parseRepeat, repeatLabel, firstDate, advance } from '../public/js/recurrence.js';
 
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
-const SERVER_INFO = { name: 'retrodark', title: 'RetroDark — notas y tareas', version: '1.0.0' };
-const INSTRUCTIONS = `RetroDark es la app de notas y tareas del usuario, con forma de chat (inspirada en WhatsApp).
+const SERVER_INFO = { name: 'chatnote', title: 'ChatNote — notas y tareas', version: '1.0.0' };
+const INSTRUCTIONS = `ChatNote es la app de notas y tareas del usuario, con forma de chat (inspirada en WhatsApp).
 - Cada "chat" es una página: tipo "chat" (mensajes libres), "notes" (notas) o "list" (tareas). "General" es la bandeja de entrada.
 - Cada mensaje es "message", "note" o "task". Una tarea tiene done, due (fecha límite AAAA-MM-DD) y remind_at (recordatorio con notificación push).
 - Un mensaje puede ser una lista de casillas: líneas "[ ] algo" / "[x] algo".

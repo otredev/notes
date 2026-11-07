@@ -1,4 +1,4 @@
-/* RetroDark — Panel lateral: lista de chats, tareas, organizar y ajustes */
+/* ChatNote — Panel lateral: lista de chats, tareas, organizar y ajustes */
 /* ---------- Panel lateral ---------- */
 .pane-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 12px 8px 16px; min-height: 60px; }
 .pane-head h1 { font-size: 22px; margin: 0; font-weight: 700; }

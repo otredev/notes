@@ -1,4 +1,4 @@
-/* RetroDark — notas y tareas con forma de chat. Punto de entrada. */
+/* ChatNote — notas y tareas con forma de chat. Punto de entrada. */
 import { $, isMobile } from './utils.js';
 import { S, settings, saveSettings, applyTheme } from './state.js';
 import { idb } from './data/idb.js';
@@ -102,7 +102,7 @@ async function init() {
 }
 
 /**
- * Accesos directos del icono y "Compartir con RetroDark":
+ * Accesos directos del icono y "Compartir con ChatNote":
  *   ?new=task|note → General listo para escribir · ?nav=tasks&view=agenda → sección
  *   ?share=1 → lo compartido (texto, enlace, archivos) va al cuadro de texto de General
  */

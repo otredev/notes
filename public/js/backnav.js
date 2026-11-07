@@ -4,7 +4,7 @@
  * El historial se mantiene en dos entradas: [inicio, guarda]. Cada vez que el usuario pulsa
  * Atrás se consume la guarda y la app decide qué hacer:
  *   ventana abierta → se cierra · selección → se quita · chat abierto (móvil) → vuelve a la lista
- *   búsqueda → se borra · otra pestaña → vuelve a Chats · si no queda nada → "¿Salir de RetroDark?"
+ *   búsqueda → se borra · otra pestaña → vuelve a Chats · si no queda nada → "¿Salir de ChatNote?"
  * Mientras se pregunta no hay guarda, así que pulsar Atrás otra vez sale de verdad.
  *
  * Al cerrar o recargar la pestaña (escritorio) el navegador muestra su propio aviso.
@@ -44,7 +44,7 @@ function askExit() {
   const note = pending
     ? `Hay ${pending} cambio${pending > 1 ? 's' : ''} sin subir. Se guardan en este dispositivo y se subirán la próxima vez que abras la app.`
     : 'Tus notas están guardadas.';
-  sheet('¿Salir de RetroDark?', `<p class="muted">${note}</p>`, {
+  sheet('¿Salir de ChatNote?', `<p class="muted">${note}</p>`, {
     actions: '<span class="grow"></span><button class="btn ghost" data-act="sheet-close">Quedarme</button><button class="btn primary" data-s="exit">Salir</button>',
     onMount: (sh) => sh.addEventListener('click', (e) => { if (e.target.closest('[data-s=exit]')) leave(); }),
     onClose: () => { asking = false; pushGuard(); },

@@ -23,7 +23,7 @@ export function createApp({ repo, token = '', vapid = null, timezone = 'UTC', pu
   app.get('/cal/:file', async (req, res, next) => {
     try { send(res, await handleFeed({ getRepo: async () => repo, token, tz: timezone }, { file: req.params.file, origin: `${req.protocol}://${req.get('host')}` })); } catch (err) { next(err); }
   });
-  // "Compartir con RetroDark" sin service worker
+  // "Compartir con ChatNote" sin service worker
   app.post('/share', (req, res) => res.redirect(303, './?share=0'));
 
   app.use('/api', express.json({ limit: '25mb' }), async (req, res, next) => {

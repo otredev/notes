@@ -1,6 +1,6 @@
 /*
  * Correo a nota: lo que envíes a la dirección que configures en Cloudflare Email Routing
- * llega como mensaje (✉️) a RetroDark. Solo se aceptan los remitentes permitidos (Ajustes → Correo).
+ * llega como mensaje (✉️) a ChatNote. Solo se aceptan los remitentes permitidos (Ajustes → Correo).
  *
  *   Asunto       → primera línea en negrita (#etiquetas del asunto mandan el mensaje a su chat vinculado)
  *   "[] …" o "tarea: …" en el asunto → tarea · "nota: …" → nota

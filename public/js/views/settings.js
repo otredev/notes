@@ -64,7 +64,7 @@ export function updateSyncBox() {
 export const mcpUrl = (withToken = false) => `${location.origin}/mcp${withToken && settings.token ? `/${encodeURIComponent(settings.token)}` : ''}`;
 
 export function mcpBoxHtml() {
-  const cmd = `claude mcp add --transport http retrodark ${mcpUrl()}${settings.token ? ' --header "Authorization: Bearer TU_APP_TOKEN"' : ''}`;
+  const cmd = `claude mcp add --transport http chatnote ${mcpUrl()}${settings.token ? ' --header "Authorization: Bearer TU_APP_TOKEN"' : ''}`;
   return `<p class="muted small" style="margin:0 0 8px">Conecta Claude (u otro asistente compatible con MCP) para que lea y organice tus notas y tareas. Lo que escriba aparecerá aquí como mensaje recibido.</p>
     <label class="field" style="margin:6px 0"><span>URL para Claude.ai / Claude Desktop (Conectores → Añadir conector personalizado)</span>
       <input readonly id="mcp-url" value="${esc(mcpUrl(true))}" onfocus="this.select()"></label>
@@ -88,7 +88,7 @@ export function settingsPaneHtml() {
     <div class="set-group"><label class="set-row toggle"><input type="checkbox" id="set-enter" ${settings.enterSend ? 'checked' : ''}><span class="grow">Enviar con Enter<br><small class="muted">Mayús + Enter hace un salto de línea</small></span></label></div>
     <div class="sec-title">Navegación</div>
     <div class="set-group"><label class="set-row toggle"><input type="checkbox" id="set-exit" ${settings.confirmExit ? 'checked' : ''}><span class="grow">Preguntar antes de salir<br><small class="muted">Al pulsar Atrás en la pantalla principal, cerrar o recargar la pestaña</small></span></label></div>
-    ${S.installEvt ? '<div class="sec-title">App</div><div class="set-group"><button class="btn primary" data-act="install">Instalar RetroDark</button></div>' : ''}
+    ${S.installEvt ? '<div class="sec-title">App</div><div class="set-group"><button class="btn primary" data-act="install">Instalar ChatNote</button></div>' : ''}
     <div class="sec-title">Notificaciones</div>
     <div class="set-group" id="push-box"><p class="muted small">Comprobando…</p></div>
     <div class="sec-title">Sincronización</div>

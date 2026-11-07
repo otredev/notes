@@ -1,4 +1,4 @@
-/* RetroDark — Hojas (ventanas modales) y formularios */
+/* ChatNote — Hojas (ventanas modales) y formularios */
 /* ---------- Hojas (modales) ---------- */
 #sheet-root { position: fixed; inset: 0; z-index: 50; display: none; }
 #sheet-root.open { display: block; }

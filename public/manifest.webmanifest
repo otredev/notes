@@ -1,6 +1,6 @@
 {
-  "name": "RetroDark",
-  "short_name": "RetroDark",
+  "name": "ChatNote",
+  "short_name": "ChatNote",
   "description": "Notas y tareas con forma de chat",
   "lang": "es",
   "start_url": "./",

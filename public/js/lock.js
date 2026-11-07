@@ -74,8 +74,8 @@ export async function enableBiometric() {
   const cred = await navigator.credentials.create({
     publicKey: {
       challenge: crypto.getRandomValues(new Uint8Array(32)),
-      rp: { name: 'RetroDark' },
-      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'retrodark', displayName: 'RetroDark' },
+      rp: { name: 'ChatNote' },
+      user: { id: crypto.getRandomValues(new Uint8Array(16)), name: 'chatnote', displayName: 'ChatNote' },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
       timeout: 60000,

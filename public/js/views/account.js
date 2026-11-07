@@ -100,7 +100,7 @@ export function peoplePaneHtml() {
   const list = (users || []).filter((p) => p.id !== 'owner');
   return `${back('Personas')}<div class="list">
     <div class="set-group">
-      <p class="muted small" style="margin:0 0 8px">Invita a alguien con un enlace (sirve una vez y caduca en 7 días). Al abrirlo elige su nombre y ya puede usar RetroDark con sus propias notas. Después puedes compartir chats con esa persona desde la información del chat.</p>
+      <p class="muted small" style="margin:0 0 8px">Invita a alguien con un enlace (sirve una vez y caduca en 7 días). Al abrirlo elige su nombre y ya puede usar ChatNote con sus propias notas. Después puedes compartir chats con esa persona desde la información del chat.</p>
       <div class="btn-row"><button class="btn primary" data-act="ppl-invite">+ Invitar a alguien</button></div>
       ${lastLink && lastLink.includes('join=') ? `<label class="field"><span>Enlace de invitación</span><input readonly id="ppl-link" value="${esc(lastLink)}" onfocus="this.select()"></label>
         <div class="btn-row"><button class="btn ghost" data-act="copy-input" data-v="ppl-link">Copiar enlace</button></div>` : ''}
@@ -142,7 +142,7 @@ export async function setDisabled(id, disabled) {
 const hasLocalAccount = () => !!settings.token;
 
 export function joinSheet(code) {
-  sheet('Unirte a RetroDark', `<p class="muted small">Te invitaron a RetroDark. Elige cómo te verán los demás.</p>
+  sheet('Unirte a ChatNote', `<p class="muted small">Te invitaron a ChatNote. Elige cómo te verán los demás.</p>
     <label class="field"><span>Tu nombre</span><input id="join-name" maxlength="40" autocomplete="name" placeholder="Ana"></label>
     <label class="field"><span>Usuario (para @menciones)</span><input id="join-handle" maxlength="24" autocapitalize="off" placeholder="ana"></label>
     ${hasLocalAccount() ? '<p class="small" style="color:var(--danger)">Este dispositivo ya tiene otra cuenta. Al unirte, se cambiará a la nueva y se borrarán sus datos locales (lo sincronizado sigue en el servidor).</p>' : ''}`, {

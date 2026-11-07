@@ -52,7 +52,7 @@ export const effKind = () => S.kind || TYPES[chatById(S.active)?.type || 'chat']
 export function buildMain() {
   const main = $('#main');
   if (!chatById(S.active)) {
-    main.innerHTML = `<div class="main-empty"><div class="me-logo">${ic('chats')}</div><h2>RetroDark</h2>
+    main.innerHTML = `<div class="main-empty"><div class="me-logo">${ic('chats')}</div><h2>ChatNote</h2>
       <p>Escribe como en un chat. Organiza como en una libreta.</p>
       <p class="small">Tus notas se guardan en tu base de datos MongoDB.</p></div>`;
     return;
@@ -169,7 +169,7 @@ export function quoteHtml(id, { bar = false } = {}) {
   const chat = chatById(q.chatId);
   const cat = catById(q.categoryId);
   const where = q.chatId !== S.active && chat ? `${chat.emoji} ${chat.name} · ` : '';
-  const who = q.from === 'app' ? 'RetroDark' : !isMine(q) ? nameOf(q.authorId) : KINDS[q.kind].label;
+  const who = q.from === 'app' ? 'ChatNote' : !isMine(q) ? nameOf(q.authorId) : KINDS[q.kind].label;
   return `<div class="quote ${bar ? 'in-bar' : ''}" style="--qc:${cat?.color || chat?.color || 'var(--green)'}" data-act="goto-msg" data-id="${q.id}" role="button" tabindex="0">
     <b>${esc(where + who)}</b><span>${esc(summary(q))}</span></div>`;
 }

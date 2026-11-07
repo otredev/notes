@@ -352,7 +352,7 @@ export function exportData() {
   const data = { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), chats: S.chats, messages: [...S.messages, ...S.trash], categories: S.categories, groups: S.groups, templates: S.templates };
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-  a.download = `retrodark-${todayKey()}.json`;
+  a.download = `chatnote-${todayKey()}.json`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
@@ -364,7 +364,7 @@ export async function importData(file) {
     data = JSON.parse(await file.text());
     if (data.app !== 'retrodark' || !Array.isArray(data.messages)) throw new Error();
   } catch {
-    toast('Ese archivo no es una copia de RetroDark');
+    toast('Ese archivo no es una copia de ChatNote');
     return;
   }
   restoreData(data, 'del archivo');

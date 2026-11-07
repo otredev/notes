@@ -21,7 +21,7 @@ try {
 const repo = createRepo(conn.db);
 const app = createApp({ repo, token: config.token, vapid: config.vapid, timezone: config.timezone, publicDir });
 const server = app.listen(config.port, () => {
-  console.log(`RetroDark en http://localhost:${config.port}  (base de datos: ${config.dbName})`);
+  console.log(`ChatNote en http://localhost:${config.port}  (base de datos: ${config.dbName})`);
   console.log(`MCP: http://localhost:${config.port}/mcp`);
   if (!config.token) console.log('Aviso: APP_TOKEN vacío, la API y el MCP no piden clave.');
   if (!vapidReady(config.vapid)) console.log('Aviso: sin claves VAPID, las notificaciones push están desactivadas (npm run vapid).');

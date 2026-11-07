@@ -1,4 +1,4 @@
-/* RetroDark — Móvil */
+/* ChatNote — Móvil */
 /* ---------- Móvil ---------- */
 @media (max-width: 760px) {
   #app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; border: 0; }

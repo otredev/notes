@@ -19,7 +19,7 @@ function groupChipsHtml() {
 
 export function chatsPaneHtml() {
   const q = S.search.trim();
-  return `<header class="pane-head"><h1>Retro<em>Dark</em></h1>
+  return `<header class="pane-head"><h1>Chat<em>Note</em></h1>
       <div class="head-actions">
         <button class="icon-btn sync-ind" id="sync-ind" data-act="nav" data-nav="settings" hidden>${ic('cloudOff')}</button>
         <button class="icon-btn" data-act="new-chat" title="Nuevo chat" aria-label="Nuevo chat">${ic('plus')}</button>

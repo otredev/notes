@@ -256,7 +256,7 @@ const ACTIONS = {
       const data = await api(`backups/${encodeURIComponent(el.dataset.v)}`);
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
-      a.download = `retrodark-${el.dataset.v}`;
+      a.download = `chatnote-${el.dataset.v}`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     } catch (err) { toast(err.message); }

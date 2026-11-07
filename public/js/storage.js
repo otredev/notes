@@ -41,7 +41,7 @@ export function storageModal({ force = false } = {}) {
   shownAt = Date.now();
   const st = storageInfo();
   sheet('⛔ Espacio en la nube casi lleno', `
-    <p>Para que Cloudflare no te cobre, RetroDark <b>no sube archivos nuevos</b> (fotos, audios, documentos) ni crea copias de seguridad hasta que haya espacio.</p>
+    <p>Para que Cloudflare no te cobre, ChatNote <b>no sube archivos nuevos</b> (fotos, audios, documentos) ni crea copias de seguridad hasta que haya espacio.</p>
     <div class="set-group">${storageBarsHtml(st)}</div>
     <p class="small"><b>Qué puedes hacer</b></p>
     <ul class="md-ul small">

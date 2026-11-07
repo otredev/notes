@@ -1,5 +1,5 @@
 /*
- * RetroDark en Cloudflare Workers.
+ * ChatNote en Cloudflare Workers.
  *
  * - Los archivos de public/ los sirve Cloudflare directamente (binding ASSETS).
  * - Las peticiones a /api/* llegan aquí y se pasan a un único Durable Object ("main"),
@@ -291,7 +291,7 @@ export default {
     if (url.pathname.startsWith('/api/files/')) return files(request, env, url, ctx);
     if (url.pathname.startsWith('/api/ai/')) return ai(request, env, url, ctx);
     if (url.pathname === '/.well-known/assetlinks.json') return assetLinks(env);
-    // "Compartir con RetroDark" sin service worker activo: se abre la app (el contenido no se pierde con él activo).
+    // "Compartir con ChatNote" sin service worker activo: se abre la app (el contenido no se pierde con él activo).
     if (url.pathname === '/share' && request.method === 'POST') return Response.redirect(`${url.origin}/?share=0`, 303);
     if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/cal/') || url.pathname === '/mcp' || url.pathname.startsWith('/mcp/')) {
       return stubOf(env).fetch(request);
@@ -304,7 +304,7 @@ export default {
     const stub = stubOf(env);
     const from = String(message.from || '').toLowerCase();
     const check = await stub.fetch('https://retrodark.internal/internal/email-check', { method: 'POST', body: JSON.stringify({ from }) });
-    if (!(await check.json()).allowed) { message.setReject('Remitente no autorizado en RetroDark'); return; }
+    if (!(await check.json()).allowed) { message.setReject('Remitente no autorizado en ChatNote'); return; }
     const mail = await PostalMime.parse(message.raw);
     const attachments = [];
     for (const a of (mail.attachments || []).slice(0, MAX_EMAIL_ATTACHMENTS)) {

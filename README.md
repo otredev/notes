@@ -1,4 +1,6 @@
-# RetroDark
+# ChatNote
+
+> Los nombres internos siguen siendo `retrodark` (Worker y URL `retrodark.<tu-subdominio>.workers.dev`, base de datos, bucket `retrodark-files`, datos guardados en el navegador) para no perder datos ni configuración.
 
 PWA de notas y tareas con forma de chat (inspirada en WhatsApp). Los datos se guardan en **MongoDB** a través de un pequeño servidor Node, y la app sigue funcionando sin conexión.
 
@@ -43,7 +45,7 @@ El Worker revisa los recordatorios cada minuto (`triggers.crons` en `wrangler.js
 
 ### Personas y chats compartidos
 
-Quien usa `APP_TOKEN` es el **propietario** (tus dispositivos de siempre siguen igual). Para usar RetroDark con más gente:
+Quien usa `APP_TOKEN` es el **propietario** (tus dispositivos de siempre siguen igual). Para usar ChatNote con más gente:
 
 1. **Ajustes → Personas → Invitar a alguien**: se copia un enlace (`…/?join=…`, 7 días, un solo uso). Quien lo abre elige su nombre y su usuario, y ese dispositivo queda con su propia sesión (sin contraseñas). Cada persona tiene sus propias notas, categorías y plantillas.
 2. En la **información de un chat → Añadir persona** lo compartes. Los administradores cambian nombre e icono, añaden o sacan gente y pueden activar **"Solo los administradores pueden enviar"** (lo hace cumplir el servidor).
@@ -93,7 +95,7 @@ Bubblewrap te muestra la huella SHA-256 de tu clave de firma (o cópiala de Play
 "ANDROID_SHA256": "AA:BB:CC:…"
 ```
 
-Se sirve en `/.well-known/assetlinks.json`. Con la app instalada, "Ok Google, abre RetroDark" la abre y al mantener pulsado el icono salen los accesos directos.
+Se sirve en `/.well-known/assetlinks.json`. Con la app instalada, "Ok Google, abre ChatNote" la abre y al mantener pulsado el icono salen los accesos directos.
 
 Dominio propio: panel de Cloudflare → *Workers & Pages → retrodark → Settings → Domains & Routes → Add → Custom domain*.
 
@@ -106,11 +108,11 @@ Dominio propio: panel de Cloudflare → *Workers & Pages → retrodark → Setti
 
 ### Servidor MCP (asistentes de IA)
 
-RetroDark incluye un servidor [MCP](https://modelcontextprotocol.io) en `/mcp` para que Claude u otro asistente lea y organice tus notas y tareas. Lo que escribe el asistente aparece en la app como mensaje recibido (🤖 Asistente). Usa la misma clave `APP_TOKEN`.
+ChatNote incluye un servidor [MCP](https://modelcontextprotocol.io) en `/mcp` para que Claude u otro asistente lea y organice tus notas y tareas. Lo que escribe el asistente aparece en la app como mensaje recibido (🤖 Asistente). Usa la misma clave `APP_TOKEN`.
 
 | Cliente | Cómo conectarlo |
 |---|---|
-| **Claude Code** | `claude mcp add --transport http retrodark https://retrodark.<tu-subdominio>.workers.dev/mcp --header "Authorization: Bearer TU_APP_TOKEN"` |
+| **Claude Code** | `claude mcp add --transport http chatnote https://retrodark.<tu-subdominio>.workers.dev/mcp --header "Authorization: Bearer TU_APP_TOKEN"` |
 | **Claude.ai / Claude Desktop** | Configuración → Conectores → *Añadir conector personalizado* → URL `https://retrodark.<tu-subdominio>.workers.dev/mcp/TU_APP_TOKEN` |
 | **Otros clientes** | Transporte *Streamable HTTP*, URL `…/mcp` y cabecera `Authorization: Bearer TU_APP_TOKEN` |
 
@@ -154,7 +156,7 @@ El resto de archivos (`public/`) los sirve Cloudflare directamente. En local, `s
 | `GET` | `/api/health` | Comprobar que el servidor responde |
 | `POST` | `/api/auth/join` · `/api/auth/redeem` | Unirse con una invitación · vincular un dispositivo (sin sesión) |
 | `POST` | `/api/auth/invite` · `/api/auth/link` · `/api/auth/logout` | Crear invitación (propietario) · enlace de dispositivo · cerrar sesión |
-| `GET` · `POST` | `/api/me` · `GET /api/people` | Tu perfil · personas de RetroDark |
+| `GET` · `POST` | `/api/me` · `GET /api/people` | Tu perfil · personas de ChatNote |
 | `GET` · `POST` | `/api/sessions` · `/api/sessions/revoke` | Tus dispositivos |
 | `GET` · `POST` | `/api/users` · `/api/users/disable` | Personas y acceso (propietario) |
 | `POST` | `/api/chats/members` | `{ chatId, add \| remove \| role \| leave }` |
@@ -260,7 +262,7 @@ public/
 - **Chats bloqueados** con PIN o huella / Face ID.
 - **Varias personas**: invitaciones por enlace, chats compartidos con administradores, "solo los administradores pueden enviar", votos por persona, @menciones y cambios en tiempo real.
 - **Control del espacio en la nube**: barras en Ajustes y freno automático al 90 % del límite gratis de R2.
-- **Compartir con RetroDark** desde otras apps y **accesos directos** del icono (nueva tarea, nueva nota, agenda).
+- **Compartir con ChatNote** desde otras apps y **accesos directos** del icono (nueva tarea, nueva nota, agenda).
 - Vista de **Tareas**, **Organizar** y **Ajustes** (tema, sincronización, exportar/importar, documentación y papelera).
 
 ## Atajos al escribir

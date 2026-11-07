@@ -1,5 +1,5 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'retrodark-v13';
+const CACHE = 'chatnote-v14';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
@@ -26,7 +26,7 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-/* ---------- "Compartir con RetroDark" (share_target) ---------- */
+/* ---------- "Compartir con ChatNote" (share_target) ---------- */
 /** Guarda lo compartido en IndexedDB (meta → share) para que la app lo ponga en el cuadro de texto. */
 function saveShare(data) {
   return new Promise((resolve) => {
@@ -75,7 +75,7 @@ self.addEventListener('fetch', (e) => {
 self.addEventListener('push', (e) => {
   let data = {};
   try { data = e.data ? e.data.json() : {}; } catch { data = { body: e.data?.text() }; }
-  e.waitUntil(self.registration.showNotification(data.title || 'RetroDark', {
+  e.waitUntil(self.registration.showNotification(data.title || 'ChatNote', {
     body: data.body || '',
     tag: data.tag || data.msgId || 'retrodark',
     renotify: true,
@@ -119,7 +119,7 @@ self.addEventListener('notificationclick', (e) => {
   e.notification.close();
   const id = e.notification.data?.msgId;
   if (id && (e.action === 'done' || e.action === 'snooze')) {
-    e.waitUntil(notificationAction(id, e.action).catch(() => self.registration.showNotification('RetroDark', {
+    e.waitUntil(notificationAction(id, e.action).catch(() => self.registration.showNotification('ChatNote', {
       body: 'No se pudo guardar desde la notificación. Ábrela para hacerlo en la app.', tag: `fail-${id}`, icon: 'icons/icon-192.png', data: { msgId: id },
     })));
     return;

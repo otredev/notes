@@ -7,7 +7,7 @@ const table = (rows) => `<div class="set-group"><table class="help">${rows.map((
 export function docsPaneHtml() {
   return `<header class="pane-head"><button class="icon-btn" data-act="sub" data-v="" aria-label="Volver a Ajustes">${ic('back')}</button><h1>Documentación</h1></header>
   <div class="list docs">
-    <p class="muted small pad">Todo lo que puedes escribir y hacer en RetroDark.</p>
+    <p class="muted small pad">Todo lo que puedes escribir y hacer en ChatNote.</p>
 
     <div class="sec-title">Tipo de mensaje</div>
     ${table([
@@ -95,9 +95,9 @@ export function docsPaneHtml() {
 
     <div class="sec-title">Compartir y accesos directos</div>
     ${table([
-      ['Compartir → RetroDark', 'Desde otra app (con RetroDark instalada): el texto, enlace o archivos llegan al cuadro de General'],
+      ['Compartir → ChatNote', 'Desde otra app (con ChatNote instalada): el texto, enlace o archivos llegan al cuadro de General'],
       ['Mantener pulsado el icono', 'Nueva tarea, Nueva nota, General y Agenda'],
-      ['"Ok Google, abre RetroDark"', 'Con la app instalada (o la app Android), el asistente la abre'],
+      ['"Ok Google, abre ChatNote"', 'Con la app instalada (o la app Android), el asistente la abre'],
     ])}
 
     <div class="sec-title">Automatizaciones (Ajustes)</div>

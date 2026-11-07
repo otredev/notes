@@ -19,7 +19,7 @@ export const hasDate = (m) => !!(m.remindAt || m.due);
 /** Título (primera línea) y descripción (el resto) del evento. */
 export function eventText(m) {
   const lines = String(m.text || '').split('\n').map((l) => plain(l.match(ITEM_RE)?.[3] ?? l).trim()).filter(Boolean);
-  const title = (m.poll?.question || lines[0] || 'RetroDark').slice(0, 140);
+  const title = (m.poll?.question || lines[0] || 'ChatNote').slice(0, 140);
   let desc = lines.slice(1).join('\n');
   if (checklistOf(m.text)) desc = String(m.text).split('\n').filter((l) => ITEM_RE.test(l)).map((l) => `☐ ${plain(l.match(ITEM_RE)[3])}`).join('\n');
   return { title, desc };
@@ -99,7 +99,7 @@ export function eventLines(m, { tz = null, url = '', alarm = true, prefix = '' }
 /** Documento .ics completo. */
 export function calendarDoc(eventBlocks, { name = '' } = {}) {
   const lines = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//RetroDark//Notas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ChatNote//Notas//ES', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
     ...(name ? [`X-WR-CALNAME:${icsEscape(name)}`, 'REFRESH-INTERVAL;VALUE=DURATION:PT1H', 'X-PUBLISHED-TTL:PT1H'] : []),
     ...eventBlocks.flat(),
     'END:VCALENDAR',
@@ -138,5 +138,5 @@ export function feedDoc(messages, { tz, origin = '' }) {
       prefix: m.kind === 'task' ? (m.done ? '✔ ' : '☐ ') : '',
       url: origin ? `${origin}/?msg=${encodeURIComponent(m.id)}` : '',
     }));
-  return calendarDoc(events, { name: 'RetroDark' });
+  return calendarDoc(events, { name: 'ChatNote' });
 }

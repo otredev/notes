@@ -47,7 +47,7 @@ export function autoPaneHtml() {
 
     ${s.isOwner === false ? '' : `<div class="sec-title">✉️ Correo a nota</div>
     <div class="set-group">${!ready() ? loading : `
-      <p class="muted small" style="margin:0 0 8px">Reenvía un correo a tu dirección de RetroDark y llegará como mensaje. El asunto va en negrita; empieza el asunto con <code>[]</code> o <code>tarea:</code> para crear una tarea, o <code>nota:</code> para una nota. Una <code>#etiqueta</code> lo manda a su chat vinculado.</p>
+      <p class="muted small" style="margin:0 0 8px">Reenvía un correo a tu dirección de ChatNote y llegará como mensaje. El asunto va en negrita; empieza el asunto con <code>[]</code> o <code>tarea:</code> para crear una tarea, o <code>nota:</code> para una nota. Una <code>#etiqueta</code> lo manda a su chat vinculado.</p>
       <label class="field"><span>Remitentes permitidos (uno por línea)</span><textarea id="email-allowed" rows="3" placeholder="tu@correo.com">${esc((s.email.allowed || []).join('\n'))}</textarea></label>
       <label class="field"><span>Chat donde llegan</span><select id="email-chat">${chats}</select></label>
       <div class="btn-row"><button class="btn primary" data-act="email-save">Guardar</button></div>

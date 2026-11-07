@@ -1,11 +1,11 @@
 /*
- * API de RetroDark, independiente del servidor.
+ * API de ChatNote, independiente del servidor.
  * La usan tanto el Worker de Cloudflare (worker/index.js) como Express (server/app.js).
  *
  * Sin sesión:  GET /health · POST /auth/join (unirse con invitación) · POST /auth/redeem (vincular dispositivo)
  * Con sesión (APP_TOKEN = propietario, o token de sesión de cada persona):
  *   POST /sync                    subir cambios y recibir los del servidor (solo lo que puedes ver)
- *   GET|POST /me, GET /people     tu perfil y las personas de RetroDark
+ *   GET|POST /me, GET /people     tu perfil y las personas de ChatNote
  *   POST /auth/invite             (propietario) enlace para que alguien se una
  *   POST /auth/link               enlace para usar tu cuenta en otro dispositivo
  *   GET /sessions, POST /sessions/revoke, POST /auth/logout
@@ -193,7 +193,7 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
       return json(200, { app: 'retrodark', version: 1, exportedAt: new Date().toISOString(), ...(await repo.userData(u)) });
     case 'POST /import': {
       if (!isOwner) return ownerOnly();
-      if (!body || body.app !== 'retrodark' || !Array.isArray(body.messages)) return json(400, { error: 'El archivo no es una copia de RetroDark' });
+      if (!body || body.app !== 'retrodark' || !Array.isArray(body.messages)) return json(400, { error: 'El archivo no es una copia de ChatNote' });
       return json(200, { resetAt: await repo.replaceAll(body) });
     }
     case 'POST /reset':
@@ -216,7 +216,7 @@ export async function handleApi(ctx, { method, path, auth, body, userAgent }) {
       if (!vapidReady(vapid)) return json(503, { error: 'Faltan las claves VAPID en el servidor' });
       const sub = typeof body?.endpoint === 'string' ? await repo.getSub(body.endpoint) : null;
       if (!sub) return json(404, { error: 'Este dispositivo no tiene las notificaciones activadas' });
-      const sent = await pushToAll(repo, vapid, { title: 'RetroDark', body: 'Las notificaciones funcionan 🎉', tag: 'test' }, [sub]);
+      const sent = await pushToAll(repo, vapid, { title: 'ChatNote', body: 'Las notificaciones funcionan 🎉', tag: 'test' }, [sub]);
       return sent ? json(200, { ok: true }) : json(502, { error: 'El servicio de notificaciones del navegador rechazó el aviso' });
     }
     case 'POST /push/action': {

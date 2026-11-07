@@ -112,7 +112,7 @@ export function chatSheet(id) {
         if (s === 'm-add') {
           const inChat = new Set((orig.members || []).map((x) => x.id));
           const candidates = S.people.filter((p) => !inChat.has(p.id));
-          if (!candidates.length) { toast(isOwnerUser() ? 'No hay más personas: invita a alguien con "Invitar con enlace"' : 'No hay más personas en RetroDark'); return; }
+          if (!candidates.length) { toast(isOwnerUser() ? 'No hay más personas: invita a alguien con "Invitar con enlace"' : 'No hay más personas en ChatNote'); return; }
           pickSheet('Añadir al chat', candidates.map((p) => ({ id: p.id, html: `${personDot(p)} ${esc(p.name)} <small class="muted">@${esc(p.handle)}</small>` })),
             async (uid) => { if (await members({ add: [uid] }, orig.id)) { toast('Añadido'); chatSheet(orig.id); } });
           return;
@@ -125,7 +125,7 @@ export function chatSheet(id) {
         if (s === 'm-role') { if (await members({ role: { id: b.dataset.v, role: b.dataset.r } }, orig.id)) chatSheet(orig.id); return; }
         if (s === 'm-invite') {
           const url = await inviteLink(orig.id);
-          if (url) toast('Enlace copiado: quien lo abra entrará en RetroDark y en este chat');
+          if (url) toast('Enlace copiado: quien lo abra entrará en ChatNote y en este chat');
           return;
         }
         if (s === 'save') {
