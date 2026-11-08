@@ -255,3 +255,90 @@ input, textarea, select, [contenteditable="true"],
 .b-guard { font-size: 11px; line-height: 1; opacity: .85; }
 .shop.locked .shop-add, .shop.locked .shop-step, .shop.locked .shop-chk, .shop.locked .shop-del { display: none; }
 .btn.dim { opacity: .45; }
+
+/* ---------- Barra de formato al seleccionar texto ---------- */
+.sel-fmt {
+  position: fixed; z-index: 120; display: flex; gap: 2px; padding: 4px; border-radius: 10px;
+  background: linear-gradient(var(--sheet, #fff), var(--sheet, #fff)), var(--bg-solid, var(--panel, #fff)); border: 1px solid var(--glass-border, var(--line)); box-shadow: 0 6px 22px rgba(0, 0, 0, .28);
+  -webkit-backdrop-filter: var(--glass-blur, none); backdrop-filter: var(--glass-blur, none); animation: pop .12s ease;
+}
+.sel-fmt[hidden] { display: none; }
+.sel-fmt button { min-width: 32px; height: 32px; padding: 0 6px; border-radius: 7px; font-size: 14px; display: grid; place-items: center; }
+.sel-fmt button:hover, .sel-fmt button:active { background: var(--active); }
+
+/* ---------- Menú del clip (como en WhatsApp) ---------- */
+.composer-area { position: relative; }
+.attach-menu {
+  position: absolute; right: 64px; bottom: calc(100% - 4px); z-index: 30; min-width: 220px; padding: 8px;
+  display: flex; flex-direction: column; border-radius: 16px;
+  background: linear-gradient(var(--sheet, #fff), var(--sheet, #fff)), var(--bg-solid, var(--panel, #fff)); border: 1px solid var(--glass-border, var(--line)); box-shadow: 0 10px 34px rgba(0, 0, 0, .3);
+  -webkit-backdrop-filter: var(--glass-blur, none); backdrop-filter: var(--glass-blur, none);
+  transform-origin: bottom right; animation: am-in .16s ease;
+}
+.attach-menu[hidden] { display: none; }
+@keyframes am-in { from { opacity: 0; transform: scale(.92) translateY(6px); } }
+.am-item { display: flex; align-items: center; gap: 14px; padding: 8px 12px 8px 8px; border-radius: 10px; text-align: left; font-size: 15px; }
+.am-item:hover, .am-item:focus-visible { background: var(--active); outline: none; }
+.am-ic { width: 26px; height: 26px; display: grid; place-items: center; color: var(--c); }
+.am-ic .ic { width: 22px; height: 22px; }
+@media (pointer: fine) { .am-item.touch-only { display: none; } }
+@media (max-width: 760px) {
+  /* Móvil: rejilla de botones redondos de color, como en WhatsApp para teléfono. */
+  .attach-menu { left: 8px; right: 8px; bottom: calc(100% + 4px); min-width: 0; padding: 18px 10px; display: grid; grid-template-columns: repeat(4, 1fr); row-gap: 16px; transform-origin: bottom center; }
+  .am-item { flex-direction: column; gap: 6px; padding: 4px; font-size: 12px; text-align: center; color: var(--muted); }
+  .am-item:hover { background: none; }
+  .am-ic { width: 54px; height: 54px; border-radius: 50%; background: var(--c); color: #fff; }
+  .am-ic .ic { width: 26px; height: 26px; }
+}
+.clip-btn.on { color: var(--green); }
+
+/* ---------- Editor de código (bloque HTML) ---------- */
+.sheet.sheet-code { width: min(860px, calc(100% - 32px)); max-height: min(92vh, 900px); }
+.sheet-code .sheet-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; flex: 1; }
+.ce-tools { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ce-tools .chip.on { background: var(--chip-on, var(--emerald-tint)); color: var(--chip-on-text, var(--green)); }
+.ce { --ce-font: 13px/1.5 ui-monospace, "Cascadia Code", Consolas, Menlo, monospace; flex: 1; min-height: 240px; display: flex; border-radius: 10px; background: #0d1117; color: #e6edf3; overflow: hidden; border: 1px solid rgba(255, 255, 255, .08); }
+.ce-scroll { flex: 1; overflow: auto; display: flex; align-items: flex-start; min-height: 240px; max-height: 62vh; }
+.ce-gutter {
+  position: sticky; left: 0; z-index: 2; flex: none; padding: 10px 8px 10px 10px; min-width: 40px; text-align: right;
+  font: var(--ce-font); color: #6e7681; background: #0d1117; user-select: none; -webkit-user-select: none;
+}
+.ce-gutter span { display: block; }
+.ce-body { position: relative; flex: 1; min-width: 0; display: inline-block; }
+.ce:not(.ce-wrap) .ce-body { min-width: max-content; }
+.ce-hl, .ce-ta {
+  margin: 0; padding: 10px 14px 10px 6px; border: 0; font: var(--ce-font); letter-spacing: 0; tab-size: 2;
+  white-space: pre; overflow-wrap: normal; word-break: normal;
+}
+.ce-wrap .ce-hl, .ce-wrap .ce-ta { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ce-hl { pointer-events: none; min-height: 100%; background: none; }
+.ce-hl .ln { display: block; }
+.ce-ta {
+  position: absolute; inset: 0; width: 100%; resize: none; overflow: hidden; outline: none;
+  background: transparent; color: transparent; caret-color: #e6edf3; -webkit-text-fill-color: transparent;
+  -webkit-user-select: text; user-select: text;
+}
+.ce-ta::selection { background: rgba(56, 139, 253, .35); -webkit-text-fill-color: transparent; }
+.ce-ta::placeholder { color: #6e7681; -webkit-text-fill-color: #6e7681; }
+.ce-preview { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); background: var(--bg-solid, #fff); }
+.ce-preview iframe { display: block; width: 100%; height: 220px; border: 0; background: transparent; }
+@media (max-width: 760px) {
+  .sheet.sheet-code { max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 12px); }
+  .ce-scroll { max-height: 50dvh; }
+  .ce-tools small { display: none; }
+}
+
+/* ---------- Colores del código (editor y bloques en los mensajes) ---------- */
+.t-k { color: #ff7b72; } .t-s { color: #a5d6ff; } .t-c { color: #8b949e; font-style: italic; } .t-n { color: #79c0ff; }
+.t-f { color: #d2a8ff; } .t-t { color: #7ee787; } .t-a { color: #79c0ff; } .t-p { color: #ffa657; }
+:root:not([data-mode="dark"]) pre.code .t-k { color: #cf222e; }
+:root:not([data-mode="dark"]) pre.code .t-s { color: #0a3069; }
+:root:not([data-mode="dark"]) pre.code .t-c { color: #6e7781; }
+:root:not([data-mode="dark"]) pre.code .t-n, :root:not([data-mode="dark"]) pre.code .t-a { color: #0550ae; }
+:root:not([data-mode="dark"]) pre.code .t-f { color: #8250df; }
+:root:not([data-mode="dark"]) pre.code .t-t { color: #116329; }
+:root:not([data-mode="dark"]) pre.code .t-p { color: #953800; }
+/* Números de línea en los bloques de código de los mensajes (no se copian al seleccionar). */
+pre.code code { counter-reset: ln; }
+pre.code .ln { counter-increment: ln; }
+pre.code .ln::before { content: counter(ln); display: inline-block; width: 2.2em; margin-right: 12px; text-align: right; color: var(--muted); opacity: .7; user-select: none; -webkit-user-select: none; }

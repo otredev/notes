@@ -10,6 +10,8 @@ import { ic } from './icons.js';
 import { applyFormat, formatShortcut } from './editor.js';
 import { vote, pollSheet } from './poll.js';
 import { SHOP_ACTIONS, addFrom, newShop } from './shop.js';
+import { htmlSheet } from './sheets/html.js';
+import { bindSelectionFormat } from './selfmt.js';
 import { templatePicker, templateSheet } from './sheets/template.js';
 import { restoreMessages, emptyTrash, msgById } from './data/store.js';
 import { api } from './data/sync.js';
@@ -119,6 +121,11 @@ const ACTIONS = {
   'sel-edit': () => { const id = [...S.selection][0]; clearSel(); if (id) messageSheet(id); },
   toggle: (el) => toggleDone(el.dataset.id),
   attach: () => $('#attach-input')?.click(),
+  'attach-media': () => $('#attach-media')?.click(),
+  'attach-camera': () => $('#attach-camera')?.click(),
+  'attach-menu': () => toggleAttachMenu(),
+  'html-new': () => htmlSheet(),
+  'html-edit': (el) => { closeSheet(); htmlSheet(el.dataset.id); },
   'attach-remove': (el) => removePending(el.dataset.id),
   record: () => startVoice(),
   'rec-cancel': () => finishVoice(false),
@@ -203,14 +210,6 @@ const ACTIONS = {
 
   /* ---------- Formato, encuestas y plantillas ---------- */
   fmt: (el) => applyFormat(document.getElementById(el.dataset.target), el.dataset.v),
-  'fmt-toggle': (el) => {
-    settings.fmtBar = !settings.fmtBar;
-    saveSettings();
-    $('#fmt-bar').hidden = !settings.fmtBar;
-    el.classList.toggle('on', settings.fmtBar);
-    el.setAttribute('aria-pressed', settings.fmtBar);
-    $('#composer-input')?.focus();
-  },
   'embed-full': (el) => toggleEmbedFull(el.closest('.html-embed')),
   'embed-code': (el) => {
     const src = el.closest('.html-embed')?.querySelector('.he-src');
@@ -420,7 +419,20 @@ function bindLongPress() {
   });
 }
 
+/** Abre / cierra el menú del clip. Devuelve true si cambió algo. */
+function toggleAttachMenu(open) {
+  const menu = $('#attach-menu'), btn = document.querySelector('[data-act=attach-menu]');
+  if (!menu) return false;
+  const next = open ?? menu.hidden;
+  if (menu.hidden === !next) return false;
+  menu.hidden = !next;
+  btn?.setAttribute('aria-expanded', String(next));
+  btn?.classList.toggle('on', next);
+  return true;
+}
+
 export function bindEvents() {
+  bindSelectionFormat();
   bindLongPress();
   window.addEventListener('message', onEmbedMessage);
   document.addEventListener('fullscreenchange', () => {
@@ -442,6 +454,8 @@ export function bindEvents() {
       if (e.target.closest('.msg')) { e.preventDefault(); return; }
     }
     const el = e.target.closest('[data-act]');
+    // El menú del clip se cierra al elegir una opción o al tocar fuera.
+    if (!e.target.closest('#attach-menu, [data-act=attach-menu]') || el?.dataset.menu) toggleAttachMenu(false);
     if (!el) return;
     // Con mensajes seleccionados, tocar otro mensaje lo añade o quita de la selección.
     const inMsg = el.closest('.msg[data-id]');
@@ -516,6 +530,7 @@ export function bindEvents() {
     if ((e.key === 'Enter' || e.key === ' ') && t.matches?.('[role=button][data-act]')) { e.preventDefault(); t.click(); return; }
     if (e.key === 'Escape') {
       if (closeMax()) return;
+      if (toggleAttachMenu(false)) return;
       if (isSheetOpen()) closeSheet();
       else if (S.selection.size) clearSel();
       else if (S.replyTo) cancelReply();
@@ -525,7 +540,7 @@ export function bindEvents() {
   document.addEventListener('change', (e) => {
     const t = e.target;
     if (t.id === 'import-file') { importData(t.files[0]); t.value = ''; }
-    if (t.id === 'attach-input') { addFiles(t.files); t.value = ''; }
+    if (['attach-input', 'attach-media', 'attach-camera'].includes(t.id)) { addFiles(t.files); t.value = ''; }
     if (t.id === 'set-enter') { settings.enterSend = t.checked; saveSettings(); }
     if (t.id === 'set-exit') { settings.confirmExit = t.checked; saveSettings(); }
     if (t.id === 'srv-summary-on' || t.id === 'srv-summary-time') {

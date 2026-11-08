@@ -1,4 +1,5 @@
 /* Texto de los mensajes: atajos al escribir, etiquetas y formato (negrita, títulos, listas, código, HTML). */
+import { highlightLines } from './highlight.js';
 import { S } from './state.js';
 import { esc, norm, uniq, todayKey, addDays } from './utils.js';
 import { ic } from './icons.js';
@@ -155,7 +156,7 @@ export const EMBED_MAX_PX = 3000;
  * a la página. El iframe va con sandbox="allow-scripts" y sin allow-same-origin: no puede leer
  * la app, sus datos, cookies ni almacenamiento.
  */
-function embedDoc(code) {
+export function embedDoc(code) {
   const dark = document.documentElement.dataset.mode !== 'light';
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <style>html{color-scheme:${dark ? 'dark' : 'light'}}body{margin:0;padding:10px;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;color:${dark ? '#e6e9e7' : '#111b21'};background:transparent;overflow-wrap:anywhere}</style>
@@ -171,7 +172,7 @@ function htmlEmbed(code, key) {
   return `<div class="html-embed" data-key="${esc(key)}">
     <div class="he-head">${ic('code', 'tiny')}<span>HTML</span><button class="he-toggle" data-act="embed-code">Ver código</button><button class="he-toggle he-full" data-act="embed-full" title="Pantalla completa" aria-label="Pantalla completa">${ic('expand', 'tiny')}</button></div>
     <iframe class="he-frame" data-key="${esc(key)}" sandbox="allow-scripts" referrerpolicy="no-referrer" loading="lazy" title="Bloque HTML" style="${style}" srcdoc="${esc(embedDoc(code))}"></iframe>
-    <pre class="code he-src" hidden><code>${esc(code)}</code></pre></div>`;
+    <pre class="code he-src" hidden><code>${highlightLines(code, 'html')}</code></pre></div>`;
 }
 
 /**
@@ -196,7 +197,7 @@ export function fmt(t = '', { embedKey = '' } = {}) {
       if (fence[1].toLowerCase() === 'html') {
         out.push(embedKey ? htmlEmbed(code, `${embedKey}:${nEmbed++}`) : `<span class="he-chip">${ic('code', 'tiny')} Bloque HTML</span>`);
       } else {
-        out.push(`<pre class="code"><code>${esc(code)}</code></pre>`);
+        out.push(`<pre class="code"><code>${highlightLines(code, fence[1])}</code></pre>`);
       }
       continue;
     }

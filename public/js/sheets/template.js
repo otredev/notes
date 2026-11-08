@@ -4,7 +4,6 @@ import { ic } from '../icons.js';
 import { S } from '../state.js';
 import { put, remove, tplSorted } from '../data/store.js';
 import { sheet, closeSheet, toast } from '../ui/dom.js';
-import { toolbarHtml } from '../editor.js';
 import { renderPane } from '../views/pane.js';
 import { autosize, updateSendBtn } from '../views/chat.js';
 
@@ -47,8 +46,8 @@ export function templateSheet(id, { fromComposer = false } = {}) {
   const orig = id ? S.templates.find((t) => t.id === id) : null;
   const draft = !orig && fromComposer ? ($('#composer-input')?.value || '') : '';
   const body = `<label class="field"><span>Nombre</span><input id="t-name" maxlength="60" value="${esc(orig?.name || '')}" placeholder="Ej. Reunión" autocomplete="off"></label>
-    <div class="field"><span>Texto</span><div class="fmt-bar scroll-x in-sheet">${toolbarHtml('t-text')}</div>
-      <textarea id="t-text" rows="7" placeholder="Puedes usar formato, casillas [ ] y atajos como !cada lunes 9:00">${esc(orig?.text ?? draft)}</textarea></div>`;
+    <div class="field"><span>Texto</span>
+      <textarea id="t-text" data-fmt rows="7" placeholder="Selecciona texto para darle formato. Casillas [ ] y atajos como !cada lunes 9:00">${esc(orig?.text ?? draft)}</textarea></div>`;
   sheet(orig ? 'Editar plantilla' : 'Nueva plantilla', body, {
     actions: `${orig ? `<button class="btn danger ghost" data-s="del">${ic('trash', 'tiny')} Eliminar</button>` : ''}<span class="grow"></span>
       <button class="btn ghost" data-act="sheet-close">Cancelar</button><button class="btn primary" data-s="save">Guardar</button>`,

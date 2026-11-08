@@ -23,14 +23,14 @@ let onCloseCb = null;
  * Abre una hoja modal. `onMount(sheetEl)` recibe el elemento para añadir eventos;
  * `onClose()` se llama al cerrarla (por cualquier motivo).
  */
-export function sheet(title, body, { onMount, onClose, actions = '' } = {}) {
+export function sheet(title, body, { onMount, onClose, actions = '', cls = '' } = {}) {
   const prev = onCloseCb;
   onCloseCb = null;
   prev?.();
   onCloseCb = onClose || null;
   const root = $('#sheet-root');
   root.innerHTML = `<div class="sheet-backdrop" data-act="sheet-close"></div>
-    <div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+    <div class="sheet ${cls}" role="dialog" aria-modal="true" aria-label="${esc(title)}">
       <div class="sheet-head"><h3>${esc(title)}</h3><button class="icon-btn" data-act="sheet-close" aria-label="Cerrar">${ic('close')}</button></div>
       <div class="sheet-body">${body}</div>
       ${actions ? `<div class="sheet-actions">${actions}</div>` : ''}

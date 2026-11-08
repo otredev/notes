@@ -15,7 +15,7 @@ import { gotoMsg, startReply, confirmReminder, deleteMessages } from '../actions
 import { restoreMessages } from '../data/store.js';
 import { quoteHtml } from '../views/chat.js';
 import { isAudio, fmtSize } from '../files.js';
-import { toolbarHtml } from '../editor.js';
+import { htmlOf } from './html.js';
 import { REPEATS, DOW, firstDate, advance, repeatLabel } from '../recurrence.js';
 import { googleCalendarUrl, downloadIcs } from '../calendar.js';
 import { pollCounts, setPollClosed, pollVoters } from '../poll.js';
@@ -64,8 +64,8 @@ export function messageSheet(id) {
     <p class="readonly-note" id="f-locked-note" ${m.editLocked ? '' : 'hidden'}>🔒 Bloqueado: no se puede editar. Puedes destacarlo, ponerle tu categoría o fijarlo.</p>
     ${editable ? '' : `<p class="readonly-note">✍️ Escrito por <b>${esc(nameOf(m.authorId))}</b>. Puedes marcarlo como hecho, destacarlo o ponerle tu categoría; el resto solo lo cambia quien lo escribió.</p>`}
     <div class="field"><span>${m.poll ? 'Pregunta' : 'Texto'}</span>
-      ${m.poll ? '' : `<div class="fmt-bar scroll-x in-sheet">${toolbarHtml('f-text')}</div>`}
-      <textarea id="f-text" rows="4">${esc(m.text)}</textarea></div>
+      <textarea id="f-text" rows="4" data-fmt>${esc(m.text)}</textarea>
+      ${htmlOf(m) !== null && editable ? `<button class="btn outline sm" data-act="html-edit" data-id="${m.id}" id="f-html">${ic('code', 'tiny')} Editar HTML</button>` : ''}</div>
     ${m.poll ? pollInfo(m) : ''}
     ${st.atts.length ? `<div class="field"><span>Adjuntos</span><div class="att-list" id="f-atts">${attRows()}</div></div>` : ''}
     <div class="field"><span>Tipo</span><div class="seg">${Object.entries(KINDS).map(([k, v]) => `<button data-s="kind" data-v="${k}" class="${m.kind === k ? 'on' : ''}">${v.icon} ${v.label}</button>`).join('')}</div></div>
@@ -170,7 +170,7 @@ export function messageSheet(id) {
     onClose: () => { if (mode === 'save' && sh) commit().catch((err) => toast(`No se pudo guardar: ${err.message}`)); },
     onMount: (el) => {
       sh = el;
-      const CONTENT = '#f-text, #f-due, #f-repeat, #f-remind, #f-chat, #f-done, #f-tags, [data-s=kind], [data-s=remind], [data-s=att-del], .fmt-bar button';
+      const CONTENT = '#f-text, #f-due, #f-repeat, #f-remind, #f-chat, #f-done, #f-tags, #f-html, [data-s=kind], [data-s=remind], [data-s=att-del]';
       const applyLock = () => {
         const locked = !!m.editLocked;
         sh.querySelectorAll(CONTENT).forEach((x) => { x.disabled = locked || (!editable && !x.matches('#f-done, #f-tags')); });
@@ -179,7 +179,6 @@ export function messageSheet(id) {
         const del = sh.querySelector('[data-s=del]');
         if (del) { del.classList.toggle('dim', !!m.protected); del.title = m.protected ? 'Protegido: quítale la protección para eliminarlo' : ''; }
       };
-      if (!editable) sh.querySelector('.fmt-bar')?.remove();
       applyLock();
       initial = JSON.stringify(collect());
       sh.addEventListener('input', (e) => { if (e.target.matches('#f-due, #f-remind')) updateCal(); });

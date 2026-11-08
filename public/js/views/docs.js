@@ -54,12 +54,13 @@ export function docsPaneHtml() {
       ['<code>- elemento</code>', 'Lista con viñetas'],
       ['<code>`código`</code>', 'Código en línea'],
       ['<code>```</code> … <code>```</code>', 'Bloque de código (Enter dentro del bloque hace salto de línea)'],
-      ['Botón ' + ic('format', 'tiny') + ' junto al cuadro', 'Barra de formato, encuestas y plantillas'],
+      ['Seleccionar texto en el cuadro', 'Aparece la barra de formato: negrita, cursiva, subrayado, tachado, títulos, lista y código'],
+      ['Clip ' + ic('clip', 'tiny'), 'Documento, fotos y videos, cámara, encuesta, lista de compras, HTML y plantilla'],
     ])}
 
     <div class="sec-title">Bloque de código HTML</div>
     <div class="set-group small">
-      <p>Escribe <code>\`\`\`html</code>, tu código y <code>\`\`\`</code> (o usa el botón <b>HTML</b> de la barra). Se ejecuta dentro del mensaje, en una caja aislada.</p>
+      <p>Escribe <code>\`\`\`html</code>, tu código y <code>\`\`\`</code> (o usa Clip → <b>HTML</b>, con editor: números de línea, colores, sangría automática y vista previa). Se ejecuta dentro del mensaje, en una caja aislada.</p>
       <p><b>Reglas</b></p>
       <ul class="md-ul">
         <li>Corre en un <code>iframe</code> con <code>sandbox="allow-scripts"</code> y <b>sin</b> <code>allow-same-origin</code>: puede usar HTML, CSS y JavaScript, pero no puede leer la app, tus notas, cookies ni el almacenamiento.</li>
@@ -74,10 +75,10 @@ export function docsPaneHtml() {
 
     <div class="sec-title">Encuestas y plantillas</div>
     ${table([
-      ['Barra ' + ic('format', 'tiny') + ' → ' + ic('poll', 'tiny'), 'Nueva encuesta: pregunta, opciones y si se puede elegir más de una'],
+      ['Clip ' + ic('clip', 'tiny') + ' → ' + ic('poll', 'tiny'), 'Nueva encuesta: pregunta, opciones y si se puede elegir más de una'],
       ['Tocar una opción', 'Votar (otra vez para quitar el voto)'],
       ['Mensaje → Cerrar encuesta', 'Ya no admite votos (puedes reabrirla)'],
-      ['Barra ' + ic('format', 'tiny') + ' → ' + ic('template', 'tiny'), 'Insertar una plantilla. Se crean y editan en Organizar'],
+      ['Clip ' + ic('clip', 'tiny') + ' → ' + ic('template', 'tiny'), 'Insertar una plantilla. Se crean y editan en Organizar'],
     ])}
 
     <div class="sec-title">Tareas: lista, agenda y tablero</div>

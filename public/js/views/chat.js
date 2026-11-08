@@ -6,7 +6,6 @@ import { S, settings } from '../state.js';
 import { fmt, checklistOf, ITEM_RE } from '../text.js';
 import { chatById, catById, msgById, msgsOf, inboxList, summary } from '../data/store.js';
 import { avatar, catChip, dueChip, catPick, remindChip, repeatChip } from '../ui/parts.js';
-import { toolbarHtml } from '../editor.js';
 import { pollHtml } from '../poll.js';
 import { shopHtml } from '../shop.js';
 import { guardBadges } from '../guard.js';
@@ -70,13 +69,12 @@ export function buildMain() {
       <div class="attach-bar" id="attach-bar" hidden></div>
       <div class="mention-bar scroll-x" id="mention-bar" hidden></div>
       <div class="composer-locked" id="composer-locked" hidden>🔒 Solo los administradores pueden enviar mensajes en este chat</div>
-      <div class="fmt-bar scroll-x" id="fmt-bar" ${settings.fmtBar ? '' : 'hidden'}>${toolbarHtml('composer-input', { extra: true })}</div>
+      <div class="attach-menu" id="attach-menu" role="menu" hidden>${attachMenuHtml()}</div>
       <div class="composer" id="composer">
         <button class="icon-btn kind-btn" id="kind-btn" data-act="cycle-kind"></button>
         <div class="composer-box">
-          <textarea id="composer-input" rows="1" placeholder="Mensaje" enterkeyhint="send"></textarea>
-          <button class="icon-btn fmt-toggle ${settings.fmtBar ? 'on' : ''}" data-act="fmt-toggle" title="Formato, encuestas y plantillas" aria-label="Formato, encuestas y plantillas" aria-pressed="${!!settings.fmtBar}">${ic('format')}</button>
-          <button class="icon-btn clip-btn" data-act="attach" title="Adjuntar archivos" aria-label="Adjuntar archivos">${ic('clip')}</button>
+          <textarea id="composer-input" rows="1" placeholder="Mensaje" enterkeyhint="send" data-fmt></textarea>
+          <button class="icon-btn clip-btn" data-act="attach-menu" title="Adjuntar" aria-label="Adjuntar" aria-haspopup="menu" aria-expanded="false">${ic('clip')}</button>
         </div>
         <button class="send-btn" id="send-btn" data-act="send" title="Enviar" aria-label="Enviar">${ic('send')}</button>
       </div>
@@ -86,6 +84,8 @@ export function buildMain() {
         <button class="send-btn" data-act="rec-send" title="Enviar nota de voz" aria-label="Enviar nota de voz">${ic('send')}</button>
       </div>
       <input type="file" id="attach-input" multiple hidden>
+      <input type="file" id="attach-media" accept="image/*,video/*" multiple hidden>
+      <input type="file" id="attach-camera" accept="image/*" capture="environment" hidden>
     </footer>`;
   renderChatHead();
   renderFilters();
@@ -93,6 +93,21 @@ export function buildMain() {
   renderKind();
   renderReplyBar();
   renderAttachBar();
+}
+
+/* ---------- Menú del clip (como en WhatsApp) ---------- */
+const ATTACH_ITEMS = [
+  ['attach', 'file', 'Documento', '#7f66ff'],
+  ['attach-media', 'image', 'Fotos y videos', '#007bfc'],
+  ['attach-camera', 'camera', 'Cámara', '#ff2e74', 'touch'],
+  ['poll-new', 'poll', 'Encuesta', '#ffbc38'],
+  ['shop-new', 'cart', 'Lista de compras', '#02a698'],
+  ['html-new', 'code', 'HTML', '#5157ae'],
+  ['tpl-pick', 'template', 'Plantilla', '#ff8a3d'],
+];
+function attachMenuHtml() {
+  return ATTACH_ITEMS.map(([act, icon, label, color, only]) => `<button class="am-item ${only === 'touch' ? 'touch-only' : ''}" role="menuitem" data-act="${act}" data-menu="1">
+      <span class="am-ic" style="--c:${color}">${ic(icon)}</span><span>${label}</span></button>`).join('');
 }
 
 /* ---------- Adjuntos ---------- */
@@ -241,7 +256,7 @@ export function renderComposerState(c = chatById(S.active)) {
   if (!box || !comp) return;
   box.hidden = !locked;
   comp.hidden = locked || !$('#rec-bar')?.hidden;
-  if (locked) { $('#fmt-bar').hidden = true; $('#mention-bar').hidden = true; } else $('#fmt-bar').hidden = !settings.fmtBar;
+  if (locked) { $('#attach-menu').hidden = true; $('#mention-bar').hidden = true; }
 }
 
 export function renderFilters() {

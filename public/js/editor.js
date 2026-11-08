@@ -1,35 +1,8 @@
-/* Barra de formato: aplica negrita, títulos, listas, código… al cuadro de texto que esté en uso. */
-import { ic } from './icons.js';
+/* Formato: aplica negrita, títulos, listas, código… al cuadro de texto (lo usan la barra de selección y los atajos). */
 
 const INLINE = { b: '*', i: '_', u: '__', s: '~', code: '`' };
 const LINE = { h1: '# ', h3: '### ', ul: '- ' };
 const HEADINGS = /^(#{1,3})\s+/;
-
-const BUTTONS = [
-  ['b', '<b>B</b>', 'Negrita (Ctrl+B)'],
-  ['i', '<i>I</i>', 'Cursiva (Ctrl+I)'],
-  ['u', '<u>U</u>', 'Subrayado (Ctrl+U)'],
-  ['s', '<s>S</s>', 'Tachado'],
-  ['h1', 'H1', 'Título'],
-  ['h3', 'H3', 'Subtítulo'],
-  ['ul', '•', 'Lista'],
-  ['code', ic('code', 'tiny'), 'Código'],
-  ['html', 'HTML', 'Bloque HTML ejecutable'],
-];
-
-/**
- * HTML de la barra. `target` es el id del textarea; `extra` añade encuesta y plantillas (cuadro de texto del chat).
- */
-export function toolbarHtml(target, { extra = false } = {}) {
-  let h = BUTTONS.map(([v, label, title]) => `<button type="button" class="fmt-btn" data-act="fmt" data-v="${v}" data-target="${target}" title="${title}" aria-label="${title}">${label}</button>`).join('');
-  if (extra) {
-    h += '<span class="fmt-sep"></span>'
-      + `<button type="button" class="fmt-btn" data-act="poll-new" title="Encuesta" aria-label="Encuesta">${ic('poll', 'tiny')}</button>`
-      + `<button type="button" class="fmt-btn" data-act="shop-new" title="Lista de compras" aria-label="Lista de compras">${ic('cart', 'tiny')}</button>`
-      + `<button type="button" class="fmt-btn" data-act="tpl-pick" title="Plantillas" aria-label="Plantillas">${ic('template', 'tiny')}</button>`;
-  }
-  return h;
-}
 
 /** Reemplaza un trozo del textarea y avisa (para el autoajuste de alto y el botón de enviar). */
 function replace(ta, start, end, text, selStart, selEnd) {
@@ -89,7 +62,6 @@ function codeBlock(ta, lang) {
 /** Aplica un formato (b, i, u, s, code, h1, h3, ul, html) al textarea. */
 export function applyFormat(ta, v) {
   if (!ta) return;
-  if (v === 'html') return codeBlock(ta, 'html');
   if (v === 'code' && ta.value.slice(ta.selectionStart, ta.selectionEnd).includes('\n')) return codeBlock(ta, '');
   if (INLINE[v]) return wrapInline(ta, INLINE[v]);
   if (LINE[v]) return prefixLines(ta, LINE[v]);

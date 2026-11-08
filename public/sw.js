@@ -1,11 +1,11 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'chatnote-v23';
+const CACHE = 'chatnote-v24';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
   './js/main.js', './js/utils.js', './js/icons.js', './js/constants.js', './js/state.js', './js/text.js',
   './js/render.js', './js/actions.js', './js/events.js', './js/backnav.js', './js/push.js', './js/files.js', './js/player.js',
-  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js', './js/shop.js', './js/shopcore.js', './js/guard.js', './js/unread.js', './js/ai.js', './js/lock.js', './js/people.js', './js/live.js', './js/storage.js',
+  './js/editor.js', './js/recurrence.js', './js/calendar.js', './js/poll.js', './js/shop.js', './js/shopcore.js', './js/guard.js', './js/highlight.js', './js/codeeditor.js', './js/selfmt.js', './js/sheets/html.js', './js/unread.js', './js/ai.js', './js/lock.js', './js/people.js', './js/live.js', './js/storage.js',
   './js/data/idb.js', './js/data/store.js', './js/data/sync.js',
   './js/ui/dom.js', './js/ui/parts.js',
   './js/views/nav.js', './js/views/pane.js', './js/views/chatList.js', './js/views/tasks.js',
