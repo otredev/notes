@@ -2,11 +2,15 @@
  * Personas y permisos en la app (el servidor los vuelve a comprobar siempre).
  *  - Sin cuentas (servidor sin APP_TOKEN o datos antiguos) todo es del propietario: "owner".
  */
-import { S } from './state.js';
+import { S, settings } from './state.js';
 import { mentionNames } from './text.js';
 import { onMe } from './data/sync.js';
 
-export const myId = () => S.me?.id || 'owner';
+/**
+ * Mi id. Si aún no llegó "me" del servidor (arranque sin conexión, sincronización pendiente…),
+ * se saca del token de sesión (rd1.<usuario>.<sesión>.<firma>) para no confundirme con el propietario.
+ */
+export const myId = () => S.me?.id || settings.token?.match(/^rd1\.([^.]+)\./)?.[1] || 'owner';
 export const personById = (id) => S.people.find((p) => p.id === id) || (id === myId() ? S.me : null);
 export const nameOf = (id) => (id === myId() ? 'Tú' : personById(id)?.name || 'Alguien');
 export const colorOf = (id) => personById(id)?.color || 'var(--green)';
@@ -17,7 +21,8 @@ const authorOf = (m) => m.authorId || myId();
 export const isMine = (m) => authorOf(m) === myId();
 export const isShared = (chat) => !!chat?.shared || (chat?.members?.length || 0) > 1;
 export const isChatAdmin = (chat) => !chat?.members?.length || chat.members.some((x) => x.id === myId() && x.role === 'admin');
-export const isChatOwner = (chat) => (chat?.ownerId || 'owner') === myId();
+// Un chat sin ownerId aún no ha pasado por el servidor: lo creé yo en este dispositivo.
+export const isChatOwner = (chat) => !chat?.ownerId || chat.ownerId === myId();
 /** ¿Puedo escribir en este chat? ("Solo los administradores pueden enviar") */
 export const canPost = (chat) => !chat?.onlyAdmins || isChatAdmin(chat);
 export const canEdit = (m) => isMine(m);

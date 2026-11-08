@@ -20,7 +20,7 @@ import { ic } from '../icons.js';
 function membersHtml(c) {
   const admin = isChatAdmin(c);
   const rows = membersOf(c).map((p) => {
-    const owner = p.id === (c.ownerId || 'owner');
+    const owner = p.id === (c.ownerId || myId());
     const me = p.id === myId();
     return `<div class="member-row">${personDot(p)}<span class="grow"><b>${esc(me ? 'Tú' : p.name)}</b> <span class="muted small">@${esc(p.handle || '')}</span>
       ${p.role === 'admin' ? '<span class="role-chip">Admin</span>' : ''}</span>
