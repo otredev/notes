@@ -8,7 +8,7 @@ import { $, uid, esc } from './utils.js';
 import { S } from './state.js';
 import { chatById, msgById, put, touch } from './data/store.js';
 import { schedule } from './data/sync.js';
-import { toast } from './ui/dom.js';
+import { toast, confirmSheet } from './ui/dom.js';
 import { refreshAll } from './render.js';
 import { canPost, myId } from './people.js';
 import { shopItems, parseShopInput, SHOP_MAX_ITEMS } from './shopcore.js';
@@ -69,7 +69,14 @@ export const SHOP_ACTIONS = {
   'shop-use': (el) => change(el.dataset.id, el.dataset.i, (x) => { if (x.q > 0) x.last = Math.max(x.last || 1, x.q); x.q = Math.max(0, x.q - 1); }),
   'shop-more': (el) => change(el.dataset.id, el.dataset.i, (x) => { x.q += 1; x.last = x.q; }),
   'shop-got': (el) => change(el.dataset.id, el.dataset.i, (x) => { x.q = Math.max(1, x.last || 1); }),
-  'shop-del': (el) => change(el.dataset.id, el.dataset.i, (x) => { for (const k of ['n', 'q', 'last']) delete x[k]; x.del = true; }),
+  // Quitar un producto: primero se pregunta.
+  'shop-del': (el) => {
+    const { id, i } = el.dataset;
+    const m = msgById(id);
+    const x = m?.shop?.items.find((y) => y.id === i && !y.del);
+    if (!x || lockedNotice(m)) return;
+    confirmSheet(`¿Quitar "${x.n}" de la lista?`, 'Quitar', () => change(id, i, (y) => { for (const k of ['n', 'q', 'last']) delete y[k]; y.del = true; }));
+  },
   'shop-add': (el) => addFrom(el.closest('.shop')?.querySelector('.shop-in')),
 };
 
