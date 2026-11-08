@@ -122,7 +122,6 @@ export async function revokeSession(id) {
 /** Cerrar sesión: este dispositivo olvida la cuenta y sus datos locales. */
 export function logout() {
   confirmSheet('Este dispositivo dejará de tener acceso a tu cuenta y se borrarán sus datos locales (lo sincronizado sigue en el servidor).', 'Cerrar sesión', async () => {
-    try { await api('auth/logout', { method: 'POST' }); } catch { /* sin conexión: se borra igual */ }
     await switchAccount('');
   });
 }
@@ -132,6 +131,13 @@ export function logout() {
  * con keepLocal (el propietario en un dispositivo que aún no sincronizaba) se conserva lo guardado y se sube.
  */
 export async function switchAccount(token, { keepLocal = false } = {}) {
+  // La sesión anterior de este dispositivo se cierra en el servidor (deja de salir en "Dispositivos").
+  const prev = settings.token;
+  if (prev && prev !== token) {
+    try {
+      await fetch('api/auth/logout', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${prev}` }, body: '{}' });
+    } catch { /* sin conexión: se borra igual en este dispositivo */ }
+  }
   settings.token = token;
   saveSettings();
   await storeToken();

@@ -33,7 +33,9 @@ export const onAuthRequired = (fn) => authListeners.add(fn);
 export async function api(path, { method = 'GET', body } = {}) {
   const headers = { 'Content-Type': 'application/json' };
   if (settings.token) headers.Authorization = `Bearer ${settings.token}`;
-  const res = await fetch(`api/${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  // Los POST van siempre con cuerpo JSON (aunque sea {}): el servidor de Cloudflare rechazaba los vacíos.
+  const payload = body === undefined ? (method === 'GET' ? undefined : '{}') : JSON.stringify(body);
+  const res = await fetch(`api/${path}`, { method, headers, body: payload });
   if (res.status === 401) {
     authListeners.forEach((fn) => fn());
     throw Object.assign(new Error(settings.token ? 'Tu sesión ya no es válida: vuelve a entrar' : 'Inicia sesión para sincronizar'), { auth: true });

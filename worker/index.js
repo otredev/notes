@@ -176,7 +176,9 @@ export class Database extends DurableObject {
 
     let body;
     if (request.method === 'POST') {
-      try { body = await request.json(); } catch { return jsonResponse(400, { error: 'JSON no válido' }); }
+      // Un POST sin cuerpo (cerrar sesión, cerrar las demás…) es válido: llega como objeto vacío.
+      const text = await request.text();
+      try { body = text.trim() ? JSON.parse(text) : {}; } catch { return jsonResponse(400, { error: 'JSON no válido' }); }
     }
     try {
       const r = await handleApi(

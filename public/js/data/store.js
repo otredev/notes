@@ -147,36 +147,18 @@ export async function seed() {
   const general = { id: 'general', name: 'General', emoji: '💬', color: '#00a884', type: 'chat', groupId: null, tags: [], desc: 'Tu bandeja de entrada: escribe aquí y clasifica después.', pinned: true, createdAt: now, updatedAt: now };
   if (S.chats.length) { if (!chatById('general')) await put('chats', general); return; }
 
-  const cats = [['Personal', '#53bdeb'], ['Trabajo', '#ff7a59'], ['Ideas', '#a78bfa'], ['Casa', '#10b981']]
-    .map(([name, color], i) => ({ id: uid(), name, color, order: i, createdAt: now, updatedAt: now }));
-  const groups = [['Personal', 0], ['Trabajo', 1]].map(([name, order]) => ({ id: uid(), name, order, createdAt: now, updatedAt: now }));
-  const mkChat = (o) => ({ id: uid(), desc: '', pinned: false, createdAt: now, updatedAt: now, ...o });
-  const shop = mkChat({ name: 'Lista de compras', emoji: '🛒', color: '#10b981', type: 'list', groupId: groups[0].id, tags: ['compras'] });
-  const ideas = mkChat({ name: 'Ideas', emoji: '💡', color: '#a78bfa', type: 'notes', groupId: groups[0].id, tags: ['idea'] });
-  const work = mkChat({ name: 'Trabajo', emoji: '💼', color: '#ff7a59', type: 'list', groupId: groups[1].id, tags: ['trabajo'] });
-
-  let t = now - 120000;
-  const mk = (chatId, text, extra = {}) => {
-    t += 1000;
-    return { id: uid(), chatId, text, kind: 'message', done: false, tags: extractTags(text), categoryId: null, due: null, starred: false, pinned: false, from: 'me', triaged: true, createdAt: t, updatedAt: now, ...extra };
-  };
+  // Usuario nuevo: solo el chat General, con unos consejos para empezar (sin chats, grupos ni categorías de ejemplo).
+  let t = now - 60000;
   const tips = [
     '¡Hola! 👋 Este es tu chat *General*. Escribe aquí todo lo que se te ocurra y clasifícalo después.',
     'Empieza un mensaje con *[]* o */t* para crear una tarea, y con */n* para una nota. También puedes tocar el icono a la izquierda del cuadro de texto.',
-    'Añade #etiquetas y @categorías (por ejemplo @trabajo). Con *!hoy*, *!mañana* o *!2026-12-24* le pones fecha límite.',
-    'Los chats con etiquetas vinculadas reciben solos lo que escribas aquí. Prueba a enviar: _[] leche #compras_',
-    'Toca un mensaje para editarlo, cambiarle el tipo o moverlo. Mantén pulsado (o clic derecho) para seleccionar varios. El botón de bandeja de arriba te ayuda a clasificar lo pendiente.',
-  ].map((x) => mk('general', x, { from: 'app', tags: [] }));
-  const msgs = [
-    ...tips,
-    mk(shop.id, 'Pan', { kind: 'task' }),
-    mk(shop.id, 'Café', { kind: 'task', done: true, doneAt: now }),
-    mk(shop.id, 'Fruta para la semana', { kind: 'task', categoryId: cats[3].id }),
-    mk(ideas.id, 'Una app de notas con forma de chat 💬 #idea', { kind: 'note', categoryId: cats[2].id, starred: true }),
-    mk(work.id, 'Revisar correos pendientes', { kind: 'task', due: todayKey(), categoryId: cats[1].id }),
-  ];
-  await putMany('categories', cats);
-  await putMany('groups', groups);
-  await putMany('chats', [general, shop, ideas, work]);
-  await putMany('messages', msgs);
+    'Añade #etiquetas. Con *!hoy*, *!mañana* o *!2026-12-24* le pones fecha límite, y con *!18:00* un recordatorio.',
+    'Con el clip 📎 adjuntas archivos o creas una encuesta, una lista de compras o un bloque HTML.',
+    'Mantén pulsado un mensaje (o clic derecho) para seleccionarlo: desde ahí lo editas ✏️, lo mueves o lo eliminas. Con ＋ creas tus propios chats.',
+  ].map((text) => {
+    t += 1000;
+    return { id: uid(), chatId: 'general', text, kind: 'message', done: false, tags: [], categoryId: null, due: null, starred: false, pinned: false, from: 'app', triaged: true, createdAt: t, updatedAt: now };
+  });
+  await put('chats', general);
+  await putMany('messages', tips);
 }
