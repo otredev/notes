@@ -49,6 +49,17 @@ function update() {
   target = ta;
   const b = ensureBar();
   b.hidden = false;
+  // Táctil: el menú del sistema (Cortar, Copiar, Pegar…) sale encima de la selección y la web no puede
+  // añadirle botones. Para que no se tapen, la barra va DEBAJO del cuadro, dentro de la página.
+  if (matchMedia('(pointer: coarse)').matches) {
+    const anchor = ta.id === 'composer-input' ? document.getElementById('composer') : ta;
+    if (anchor && b.previousElementSibling !== anchor) anchor.after(b);
+    b.classList.add('docked');
+    b.style.top = b.style.left = '';
+    return;
+  }
+  if (b.parentElement !== document.body) document.body.appendChild(b);
+  b.classList.remove('docked');
   // Encima del cuadro (o debajo si no cabe arriba), dentro de la pantalla.
   const r = ta.getBoundingClientRect(), vv = window.visualViewport;
   const top0 = vv ? vv.offsetTop : 0, w = b.offsetWidth, h = b.offsetHeight;

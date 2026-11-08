@@ -342,3 +342,8 @@ input, textarea, select, [contenteditable="true"],
 pre.code code { counter-reset: ln; }
 pre.code .ln { counter-increment: ln; }
 pre.code .ln::before { content: counter(ln); display: inline-block; width: 2.2em; margin-right: 12px; text-align: right; color: var(--muted); opacity: .7; user-select: none; -webkit-user-select: none; }
+/* Táctil: barra de formato debajo del cuadro (el menú del sistema va encima de la selección). */
+.sel-fmt.docked {
+  position: static; justify-content: space-around; margin: 0 10px 6px; border-radius: 10px; box-shadow: none; animation: none;
+}
+.sel-fmt.docked button { flex: 1; height: 36px; }
