@@ -25,6 +25,7 @@ export function toolbarHtml(target, { extra = false } = {}) {
   if (extra) {
     h += '<span class="fmt-sep"></span>'
       + `<button type="button" class="fmt-btn" data-act="poll-new" title="Encuesta" aria-label="Encuesta">${ic('poll', 'tiny')}</button>`
+      + `<button type="button" class="fmt-btn" data-act="shop-new" title="Lista de compras" aria-label="Lista de compras">${ic('cart', 'tiny')}</button>`
       + `<button type="button" class="fmt-btn" data-act="tpl-pick" title="Plantillas" aria-label="Plantillas">${ic('template', 'tiny')}</button>`;
   }
   return h;

@@ -26,6 +26,7 @@ export const inboxList = () => S.messages
 export const dueNowCount = () => S.messages.filter((m) => m.kind === 'task' && !m.done && m.due && m.due <= todayKey()).length;
 export function kindPrefix(m) {
   if (m.poll) return '📊 ';
+  if (m.shop) return '🛒 ';
   if (m.kind === 'task') return m.done ? '☑ ' : '☐ ';
   const cl = checklistOf(m.text);
   if (cl) return `☑ ${cl.done}/${cl.total} `;
@@ -87,11 +88,15 @@ export const TRASH_DAYS = 30;
 
 /** Mueve mensajes a la papelera (se pueden recuperar durante 30 días). */
 export async function trashMessages(ids) {
-  const now = Date.now();
+  const now = Date.now(), done = [];
   for (const id of ids) {
     const m = msgById(id);
-    if (m) { m.trashedAt = now; await put('messages', m); }
+    if (!m || m.protected) continue; // protegido: no se elimina hasta quitarle la protección
+    m.trashedAt = now;
+    await put('messages', m);
+    done.push(id);
   }
+  return done;
 }
 
 /** Saca mensajes de la papelera. Si su chat ya no existe, vuelven a General. */

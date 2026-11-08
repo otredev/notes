@@ -12,6 +12,7 @@
  * cualquier otro cambio (aparece como mensaje recibido).
  */
 import { tokenOk } from './api.js';
+import { shopItems } from '../public/js/shopcore.js';
 import { parseRepeat, repeatLabel, firstDate, advance } from '../public/js/recurrence.js';
 
 const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
@@ -22,6 +23,7 @@ const INSTRUCTIONS = `ChatNote es la app de notas y tareas del usuario, con form
 - Un mensaje puede ser una lista de casillas: líneas "[ ] algo" / "[x] algo".
 - Una tarea puede repetirse (repeat: "cada día", "laborables", "cada lunes", "cada mes"…); al completarla pasa a su próxima fecha.
 - Un mensaje puede ser una encuesta (poll). delete_message lo manda a la papelera (30 días).
+- Un mensaje bloqueado (locked) no se puede editar y uno protegido (protected) no se puede eliminar; eso solo lo quita el usuario desde la app.
 - Usa list_chats para ver chats, categorías y grupos; read_chat o search_messages para leer; list_tasks para pendientes.
 - Las fechas y horas sin zona se interpretan en la zona horaria del usuario.`;
 
@@ -114,7 +116,9 @@ function findMessage(data, id) {
 async function save(repo, store, doc) {
   doc.updatedAt = Math.max(Date.now(), (doc.updatedAt || 0) + 1);
   const { id, ...rest } = doc;
-  await repo.applyChanges([{ store, id, updatedAt: doc.updatedAt, doc: rest }]);
+  const res = await repo.applyChanges([{ store, id, updatedAt: doc.updatedAt, doc: rest }]);
+  // Si el servidor no aceptó el cambio (mensaje protegido, sin permiso…), se avisa en vez de decir que se hizo.
+  if (res?.rejected?.length) throw new ToolError(res.rejected[0].reason);
   return doc;
 }
 
@@ -134,9 +138,12 @@ function view(m, data, tz) {
     ...(m.remindAt ? { remind_at: fmtLocal(m.remindAt, tz) } : {}),
     ...(m.repeat?.freq ? { repeat: repeatLabel(m.repeat).toLowerCase() } : {}),
     ...(m.poll ? { poll: pollView(m.poll) } : {}),
+    ...(m.shop ? { shopping_list: { to_buy: shopItems(m.shop).filter((x) => x.q <= 0).map((x) => x.n), at_home: shopItems(m.shop).filter((x) => x.q > 0).map((x) => ({ name: x.n, qty: x.q })) } } : {}),
     ...(cat ? { category: cat.name } : {}),
     ...(m.tags?.length ? { tags: m.tags } : {}),
     ...(m.starred ? { starred: true } : {}),
+    ...(m.editLocked ? { locked: 'bloqueado: no se puede editar' } : {}),
+    ...(m.protected ? { protected: 'protegido: no se puede eliminar' } : {}),
     ...(m.pinned ? { pinned: true } : {}),
     ...(m.replyTo ? { reply_to: m.replyTo } : {}),
     ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ name: a.name, type: a.type, size: a.size, ...(a.duration ? { duration_s: Math.round(a.duration) } : {}), ...(a.text ? { text: a.text } : {}) })) } : {}),

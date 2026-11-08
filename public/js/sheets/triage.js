@@ -45,11 +45,14 @@ export function triageSheet() {
         }
         const m = queue[i];
         if (s === 'next') {
-          Object.assign(m, { kind: st.kind, chatId: st.chat || 'general', categoryId: st.cat || null, triaged: true });
+          // Bloqueado: solo se marca como clasificado (y tu categoría, que es tuya).
+          if (m.editLocked) { Object.assign(m, { categoryId: st.cat || null, triaged: true }); toast('🔒 Mensaje bloqueado: no se cambió su tipo ni su chat'); }
+          else Object.assign(m, { kind: st.kind, chatId: st.chat || 'general', categoryId: st.cat || null, triaged: true });
           await put('messages', m);
           if (m.chatId !== 'general') await touch(m.chatId);
         } else if (s === 'del') {
-          await trashMessages([m.id]);
+          if (m.protected) toast('🛡️ Mensaje protegido: no se eliminó');
+          else await trashMessages([m.id]);
         }
         i++;
         refreshAll();

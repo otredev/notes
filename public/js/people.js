@@ -22,6 +22,8 @@ export const isChatOwner = (chat) => (chat?.ownerId || 'owner') === myId();
 export const canPost = (chat) => !chat?.onlyAdmins || isChatAdmin(chat);
 export const canEdit = (m) => isMine(m);
 export const canDelete = (m, chat) => isMine(m) || isChatAdmin(chat);
+/** Bloquear / proteger un mensaje: quien lo escribió o un administrador del chat. */
+export const canGuard = (m, chat) => isMine(m) || isChatAdmin(chat);
 /** Miembros del chat (con su ficha). */
 export const membersOf = (chat) => (chat?.members?.length ? chat.members : [{ id: myId(), role: 'admin' }])
   .map((x) => ({ ...x, ...(personById(x.id) || { name: 'Alguien' }) }));

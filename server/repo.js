@@ -9,7 +9,9 @@
  *
  * Chats:    ownerId, members [{ id, role: 'admin'|'member', rev }], formerMembers [{ id, rev }], onlyAdmins,
  *           prefs { <usuario>: { pinned, groupId, archived, locked, tags, muted } }   ← cada uno los suyos
- * Mensajes: authorId, prefs { <usuario>: { starred, categoryId } }, poll.votes { <usuario>: [...] }
+ * Mensajes: authorId, prefs { <usuario>: { starred, categoryId } }, poll.votes { <usuario>: [...] },
+ *           shop.items [...] (lista de compras: cualquier miembro la usa; se fusiona producto a producto),
+ *           editLocked (nadie lo edita) y protected (no se elimina): los marca el autor o un admin
  * Categorías, grupos y plantillas: ownerId (son de cada usuario).
  *
  * La app recibe cada documento ya "visto" por su usuario (view) y escribe igual; aquí se separa
@@ -18,6 +20,7 @@
 import { randomUUID } from 'node:crypto';
 import { COLLECTIONS } from './db.js';
 import { OWNER, COLORS } from './accounts.js';
+import { cleanShop, mergeShop, sameShop } from '../public/js/shopcore.js';
 
 /* Margen para no perder escrituras que terminan en desorden entre peticiones simultáneas. */
 const PULL_OVERLAP_MS = 5000;
@@ -29,6 +32,11 @@ const OWN_STORES = ['categories', 'groups', 'templates'];
 const CHAT_SHARED = ['name', 'emoji', 'color', 'type', 'desc', 'onlyAdmins', 'createdAt'];
 /* Lo que puede cambiar quien no escribió el mensaje (en chats compartidos). */
 const NON_AUTHOR = ['done', 'doneAt', 'status'];
+/* Bloqueado / protegido (solo autor o admin). Bloqueado: el autor solo puede fijarlo o mandarlo a la papelera. */
+const GUARD = ['editLocked', 'protected'];
+const LOCKED_AUTHOR = ['pinned', 'trashedAt'];
+const blank = (v) => (v === undefined || v === null || v === false || v === '' || (Array.isArray(v) && !v.length) ? null : v);
+const CONTENT_KEYS = ['text', 'kind', 'done', 'due', 'remindAt', 'status', 'repeat', 'attachments'];
 const SERVER_FIELDS = ['_id', '_rev', 'id', 'prefs', 'prefsAt', 'sharedAt', 'members', 'formerMembers', 'ownerId', 'authorId', 'deleted', 'myRole', 'shared'];
 const ITEM_RE = /^(\s*(?:-\s*)?)\[([ xX]?)\]\s?(.*)$/;
 
@@ -272,6 +280,7 @@ export function createRepo(db) {
         if (c.deleted) {
           if (!live) continue;
           if (!isAuthor && !isAdmin(chatOfCur, u)) { reject(c, 'Solo quien lo escribió o un administrador puede borrarlo', live); continue; }
+          if (live.protected) { reject(c, 'Mensaje protegido: quítale la protección para eliminarlo', live); continue; }
           put('messages', { _id: c.id, deleted: true, chatId: live.chatId, updatedAt: Math.max(c.updatedAt, (live.updatedAt || 0) + 1), _rev: rev });
           notifyChat(chatOfCur);
           continue;
@@ -288,7 +297,7 @@ export function createRepo(db) {
           if (!canPost) { reject(c, 'Solo los administradores pueden enviar mensajes en este chat', null); continue; }
           const poll = doc.poll ? { ...doc.poll, votes: doc.poll.votes?.[u] ? { [u]: doc.poll.votes[u] } : {} } : undefined;
           const created = {
-            ...omit(doc, PERSONAL.messages), ...(poll ? { poll } : {}), _id: c.id, chatId: targetId, authorId: u,
+            ...omit(doc, PERSONAL.messages), ...(poll ? { poll } : {}), ...(doc.shop ? { shop: cleanShop(doc.shop) } : {}), _id: c.id, chatId: targetId, authorId: u,
             prefs: { [u]: pick(doc, PERSONAL.messages) }, prefsAt: { [u]: c.updatedAt }, sharedAt: c.updatedAt,
             updatedAt: c.updatedAt, _rev: rev,
           };
@@ -301,13 +310,22 @@ export function createRepo(db) {
         const next = { ...live, _rev: rev, updatedAt: Math.max(c.updatedAt, (live.updatedAt || 0) + 1) };
         let changed = false;
         const newer = c.updatedAt > (live.sharedAt ?? live.updatedAt ?? 0);
-        if (isAuthor && newer) {
+        // Bloqueado / protegido: lo cambia el autor o un admin (si su cambio es el más reciente).
+        const canGuard = (isAuthor || isAdmin(chatOfCur, u)) && newer;
+        const want = (k) => (canGuard && k in doc ? !!doc[k] : !!live[k]);
+        if (want('protected') && doc.trashedAt && !live.trashedAt) { reject(c, 'Mensaje protegido: quítale la protección para eliminarlo', live); continue; }
+        for (const k of GUARD) if (want(k) !== !!live[k]) { next[k] = want(k); changed = true; }
+        const lockedNow = want('editLocked');
+        if (isAuthor && newer && lockedNow) {
+          Object.assign(next, pick(doc, LOCKED_AUTHOR), { sharedAt: c.updatedAt });
+          changed = true;
+        } else if (isAuthor && newer) {
           if (targetId !== live.chatId && !canPost) { reject(c, 'Solo los administradores pueden enviar mensajes en ese chat', live); continue; }
           const keepVotes = live.poll?.votes || {};
-          Object.assign(next, omit(doc, [...PERSONAL.messages, 'poll']), { chatId: targetId, sharedAt: c.updatedAt });
+          Object.assign(next, omit(doc, [...PERSONAL.messages, 'poll', 'shop']), { chatId: targetId, sharedAt: c.updatedAt });
           if (doc.poll) next.poll = { ...doc.poll, votes: keepVotes };
           changed = true;
-        } else if (!isAuthor && newer) {
+        } else if (!isAuthor && newer && !lockedNow) {
           // Otro miembro: solo el estado de la tarea y marcar casillas.
           Object.assign(next, pick(doc, NON_AUTHOR));
           if (doc.text !== undefined && doc.text !== live.text && onlyChecksChanged(live.text, doc.text)) next.text = doc.text;
@@ -315,6 +333,17 @@ export function createRepo(db) {
           next.sharedAt = c.updatedAt;
           changed = true;
         }
+        // Lista de compras: cualquier miembro; cada producto se fusiona por separado (gana su cambio más reciente).
+        let shopForce = false;
+        if (doc.shop && live.shop && !lockedNow) {
+          const merged = mergeShop(live.shop, cleanShop(doc.shop));
+          if (!sameShop(merged, live.shop)) { next.shop = merged; changed = true; }
+          shopForce = !sameShop(merged, doc.shop); // el dispositivo no tenía lo de los demás
+        }
+        // Lo que no se aceptó por estar bloqueado (o por no poder bloquear): el dispositivo recibe la versión buena.
+        const lockedEdit = lockedNow && (CONTENT_KEYS.some((k) => k in doc && JSON.stringify(blank(doc[k])) !== JSON.stringify(blank(live[k]))) || (doc.shop && !sameShop(doc.shop, live.shop)) || ('chatId' in doc && targetId !== live.chatId));
+        if (lockedEdit) out.rejected.push({ store: c.store, id: c.id, reason: 'Mensaje bloqueado: desbloquéalo para cambiarlo' });
+        const guardForce = lockedEdit || GUARD.some((k) => k in doc && !!doc[k] !== !!(next[k] ?? live[k]));
         // Mi voto en una encuesta: siempre el mío, sin tocar los de los demás.
         const poll = next.poll || live.poll;
         if (poll && doc.poll && !poll.closed && c.updatedAt > (live.prefsAt?.[u] ?? 0)) {
@@ -337,7 +366,9 @@ export function createRepo(db) {
           if (targetId !== live.chatId) notifyChat(target);
           // Lo que no se aceptó: el dispositivo recibe la versión buena.
           const lost = !isAuthor && ((doc.text !== undefined && next.text !== doc.text) || ['kind', 'due', 'remindAt', 'chatId'].some((k) => k in doc && doc[k] !== (k === 'chatId' ? chatFromDb(next.chatId, u) : next[k])));
-          if (lost) out.forced.push({ store: 'messages', doc: { ...view('messages', next, u), updatedAt: next.updatedAt + 1 } });
+          if (lost || shopForce || guardForce) out.forced.push({ store: 'messages', doc: { ...view('messages', next, u), updatedAt: next.updatedAt + 1 } });
+        } else if (shopForce || guardForce) {
+          out.forced.push({ store: 'messages', doc: { ...view('messages', live, u), updatedAt: Math.max(c.updatedAt, live.updatedAt || 0) + 1 } });
         }
       }
 

@@ -8,6 +8,8 @@ import { chatById, catById, msgById, msgsOf, inboxList, summary } from '../data/
 import { avatar, catChip, dueChip, catPick, remindChip, repeatChip } from '../ui/parts.js';
 import { toolbarHtml } from '../editor.js';
 import { pollHtml } from '../poll.js';
+import { shopHtml } from '../shop.js';
+import { guardBadges } from '../guard.js';
 import { aiAvailable, aiBusy } from '../ai.js';
 import { isLocked } from '../lock.js';
 import { isMine, isShared, nameOf, colorOf, canPost, membersOf, myId } from '../people.js';
@@ -277,16 +279,16 @@ function bubble(m, replies) {
   const ticks = m.kind === 'task' || cl ? `<span class="ticks ${allDone ? 'read' : ''}">${ic(allDone ? 'done2' : 'check', 'tiny')}</span>` : '';
   const check = m.kind === 'task'
     ? `<button class="check ${m.done ? 'on' : ''}" data-act="toggle" data-id="${m.id}" aria-label="${m.done ? 'Marcar como pendiente' : 'Completar'}">${ic('check')}</button>` : '';
-  const wide = m.poll || /```html/i.test(m.text || '');
+  const wide = m.poll || m.shop || /```html/i.test(m.text || '');
   return `<div class="msg ${side} k-${m.kind} ${m.done ? 'done' : ''} ${wide ? 'wide' : ''} ${S.selection.has(m.id) ? 'sel' : ''}" data-act="msg" data-id="${m.id}">
     <button class="b-reply" data-act="reply" data-id="${m.id}" title="Responder" aria-label="Responder">${ic('reply', 'tiny')}</button>
     <div class="bubble ${cat ? 'has-cat' : ''}" ${cat ? `style="--cat:${cat.color}"` : ''}>
       ${sender}${kindHeader}
       ${m.replyTo ? quoteHtml(m.replyTo) : ''}
       ${attachmentsHtml(m)}
-      ${m.poll ? pollHtml(m) : cl ? checklistHtml(m) : m.text?.trim() || check ? `<div class="b-row">${check}<div class="b-text">${fmt(m.text, { embedKey: m.id })}</div></div>` : ''}
+      ${m.poll ? pollHtml(m) : m.shop ? shopHtml(m) : cl ? checklistHtml(m) : m.text?.trim() || check ? `<div class="b-row">${check}<div class="b-text">${fmt(m.text, { embedKey: m.id })}</div></div>` : ''}
       ${chips ? `<div class="b-chips">${chips}</div>` : ''}
-      <div class="b-meta">${replyCount}${m.starred ? ic('star', 'tiny star') : ''}<span>${hm(m.createdAt)}</span>${ticks}</div>
+      <div class="b-meta">${replyCount}${guardBadges(m)}${m.starred ? ic('star', 'tiny star') : ''}<span>${hm(m.createdAt)}</span>${ticks}</div>
     </div></div>`;
 }
 
@@ -326,7 +328,14 @@ export function renderMessages(stick = false) {
     if (k !== lastDay) { h += `<div class="day-sep"><span>${dayLabel(k)}</span></div>`; lastDay = k; }
     h += bubble(m, replies);
   }
+  // Si estabas escribiendo en una lista de compras, se conserva lo escrito y el cursor al redibujar.
+  const typing = document.activeElement?.classList.contains('shop-in')
+    ? { id: document.activeElement.dataset.id, v: document.activeElement.value, p: document.activeElement.selectionStart } : null;
   box.innerHTML = h;
+  if (typing) {
+    const inp = box.querySelector(`.shop-in[data-id="${typing.id}"]`);
+    if (inp) { inp.value = typing.v; inp.focus({ preventScroll: true }); inp.setSelectionRange(typing.p, typing.p); }
+  }
   box.scrollTop = stick || nearBottom ? box.scrollHeight : prevTop;
   hydrateMedia(box, findAttachment);
   // Las imágenes cambian el alto al cargar: se mantiene el final a la vista.

@@ -10,6 +10,7 @@ import { isLocked, requireUnlock } from './lock.js';
 import { canPost, mentionsIn, myId } from './people.js';
 import { canUpload } from './storage.js';
 import { markRead } from './unread.js';
+import { lockedNotice, deletable, isEditLocked } from './guard.js';
 import { api, resetLocal, syncNow, notifyUploads } from './data/sync.js';
 import { toast, closeSheet, confirmSheet, sheet, copyText } from './ui/dom.js';
 import { runAi, aiAvailable } from './ai.js';
@@ -262,6 +263,7 @@ export async function confirmReminder(ts) {
 /** Marca o desmarca una casilla dentro de un mensaje con lista. */
 export async function toggleItem(id, line) {
   const m = msgById(id);
+  if (lockedNotice(m)) return;
   const text = m && toggleItemLine(m.text, Number(line));
   if (!text) return;
   m.text = text;
@@ -299,7 +301,7 @@ export function listEnter(ta, sendOnEmpty) {
 
 export async function toggleDone(id) {
   const m = msgById(id);
-  if (!m) return;
+  if (!m || lockedNotice(m)) return;
   // Tarea recurrente: en vez de quedar hecha, salta a la próxima fecha.
   if (m.repeat?.freq && !m.done) {
     Object.assign(m, advance(m), { kind: 'task', triaged: true });
@@ -319,7 +321,7 @@ export async function toggleDone(id) {
 /** Tablero: mover una tarea a Por hacer / En curso / Hecho. */
 export async function moveTask(id, col) {
   const m = msgById(id);
-  if (!m) return;
+  if (!m || lockedNotice(m)) return;
   if (col === 'done') { if (!m.done) { m.status = null; await toggleDone(id); } return; }
   Object.assign(m, { kind: 'task', done: false, doneAt: null, status: col === 'doing' ? 'doing' : null, triaged: true });
   await put('messages', m);
@@ -342,9 +344,12 @@ export function clearSel() {
 
 export const selMsgs = () => [...S.selection].map(msgById).filter(Boolean);
 
-/** Aplica `fn` a cada mensaje seleccionado y lo guarda. */
-export async function bulk(fn) {
-  for (const m of selMsgs()) { fn(m); await put('messages', m); }
+/** Aplica `fn` a cada mensaje seleccionado y lo guarda. `content`: cambia el mensaje (se saltan los bloqueados). */
+export async function bulk(fn, { content = false } = {}) {
+  const list = selMsgs();
+  const skip = content ? list.filter(isEditLocked).length : 0;
+  for (const m of list) { if (content && isEditLocked(m)) continue; fn(m); await put('messages', m); }
+  if (skip) toast(`🔒 ${skip} mensaje${skip > 1 ? 's' : ''} bloqueado${skip > 1 ? 's' : ''} no se cambiaron`);
   S.selection.clear();
   refreshAll();
 }
@@ -406,5 +411,6 @@ export function wipe() {
 
 /** Eliminar = mover a la papelera (30 días para recuperarlo). */
 export async function deleteMessages(ids) {
-  await trashMessages(ids);
+  const ok = deletable(ids.map(msgById).filter(Boolean)).map((m) => m.id);
+  return trashMessages(ok);
 }

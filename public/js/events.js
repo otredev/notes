@@ -9,6 +9,7 @@ import { flushPendingRender } from './views/chat.js';
 import { ic } from './icons.js';
 import { applyFormat, formatShortcut } from './editor.js';
 import { vote, pollSheet } from './poll.js';
+import { SHOP_ACTIONS, addFrom, newShop } from './shop.js';
 import { templatePicker, templateSheet } from './sheets/template.js';
 import { restoreMessages, emptyTrash, msgById } from './data/store.js';
 import { api } from './data/sync.js';
@@ -151,7 +152,7 @@ const ACTIONS = {
 
   /* ---------- Selección múltiple ---------- */
   'sel-clear': () => clearSel(),
-  'sel-kind': (el) => bulk((m) => { m.kind = el.dataset.v; m.triaged = true; }),
+  'sel-kind': (el) => bulk((m) => { m.kind = el.dataset.v; m.triaged = true; }, { content: true }),
   'sel-star': () => { const allStarred = selMsgs().every((m) => m.starred); bulk((m) => { m.starred = !allStarred; }); },
   'sel-cat': () => pickSheet('Asignar categoría', [
     { id: '', html: '<span class="dot" style="--c:transparent;border:2px solid var(--muted)"></span> Sin categoría' },
@@ -165,7 +166,7 @@ const ACTIONS = {
         m.chatId = cid;
         m.triaged = true;
         if (m.kind === 'message' && target.type !== 'chat') m.kind = TYPES[target.type].kind;
-      });
+      }, { content: true });
       await touch(cid);
       refreshAll();
       toast(`${n} movido${n > 1 ? 's' : ''} a ${target.emoji} ${target.name}`, { action: 'Ver', fn: () => openChat(cid) });
@@ -177,10 +178,12 @@ const ACTIONS = {
   'sel-del': () => {
     const n = S.selection.size;
     const ids = [...S.selection];
-    deleteMessages(ids).then(() => {
+    deleteMessages(ids).then((done) => {
       S.selection.clear();
       refreshAll();
-      toast(`${n} mensaje${n > 1 ? 's' : ''} en la papelera`, { action: 'Deshacer', fn: async () => { await restoreMessages(ids); refreshAll(); } });
+      if (!done.length) return;
+      const k = done.length;
+      setTimeout(() => toast(`${k} mensaje${k > 1 ? 's' : ''} en la papelera`, { action: 'Deshacer', fn: async () => { await restoreMessages(done); refreshAll(); } }), done.length < n ? 1800 : 0);
     });
   },
 
@@ -217,6 +220,8 @@ const ACTIONS = {
   },
   'poll-new': () => pollSheet($('#composer-input')?.value.trim().split('\n')[0] || ''),
   'poll-vote': (el) => vote(el.dataset.id, el.dataset.o),
+  'shop-new': () => newShop(),
+  ...SHOP_ACTIONS,
   'tpl-pick': () => templatePicker(),
   'new-tpl': () => templateSheet(null),
   'edit-tpl': (el) => templateSheet(el.dataset.id),
@@ -507,6 +512,7 @@ export function bindEvents() {
       if (!e.shiftKey && listEnter(t, settings.enterSend)) { e.preventDefault(); return; }
       if (!e.shiftKey && settings.enterSend) { e.preventDefault(); send(); return; }
     }
+    if (e.key === 'Enter' && !e.isComposing && t.classList?.contains('shop-in')) { e.preventDefault(); addFrom(t); return; }
     if ((e.key === 'Enter' || e.key === ' ') && t.matches?.('[role=button][data-act]')) { e.preventDefault(); t.click(); return; }
     if (e.key === 'Escape') {
       if (closeMax()) return;

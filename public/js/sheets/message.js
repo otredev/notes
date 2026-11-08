@@ -19,7 +19,7 @@ import { toolbarHtml } from '../editor.js';
 import { REPEATS, DOW, firstDate, advance, repeatLabel } from '../recurrence.js';
 import { googleCalendarUrl, downloadIcs } from '../calendar.js';
 import { pollCounts, setPollClosed, pollVoters } from '../poll.js';
-import { canEdit, canDelete, isChatAdmin, nameOf } from '../people.js';
+import { canEdit, canDelete, canGuard, isChatAdmin, nameOf } from '../people.js';
 
 const repeatKey = (r) => (!r?.freq ? '' : r.freq === 'week' && Number.isInteger(r.dow) ? `week:${r.dow}` : r.freq);
 const repeatFromKey = (k) => {
@@ -55,7 +55,13 @@ export function messageSheet(id) {
       <button class="icon-btn" data-s="att-del" data-v="${a.id}" aria-label="Quitar">${ic('close')}</button></div>`).join('');
   const chat = chatById(m.chatId);
   const editable = canEdit(m);
+  const guard = canGuard(m, chat);
+  const guardField = `<div class="field"><span>Protección</span>
+      <label class="toggle"><input type="checkbox" id="f-lock" ${m.editLocked ? 'checked' : ''} ${guard ? '' : 'disabled'}> 🔒 Bloquear edición <small class="muted">· nadie puede cambiarlo</small></label>
+      <label class="toggle"><input type="checkbox" id="f-protect" ${m.protected ? 'checked' : ''} ${guard ? '' : 'disabled'}> 🛡️ Proteger de borrado <small class="muted">· no se puede eliminar</small></label>
+      ${guard ? '' : '<small class="muted">Solo quien lo escribió o un administrador puede cambiar esto.</small>'}</div>`;
   const body = `
+    <p class="readonly-note" id="f-locked-note" ${m.editLocked ? '' : 'hidden'}>🔒 Bloqueado: no se puede editar. Puedes destacarlo, ponerle tu categoría o fijarlo.</p>
     ${editable ? '' : `<p class="readonly-note">✍️ Escrito por <b>${esc(nameOf(m.authorId))}</b>. Puedes marcarlo como hecho, destacarlo o ponerle tu categoría; el resto solo lo cambia quien lo escribió.</p>`}
     <div class="field"><span>${m.poll ? 'Pregunta' : 'Texto'}</span>
       ${m.poll ? '' : `<div class="fmt-bar scroll-x in-sheet">${toolbarHtml('f-text')}</div>`}
@@ -87,6 +93,7 @@ export function messageSheet(id) {
     <div class="field row">
       <label class="toggle"><input type="checkbox" id="f-star" ${m.starred ? 'checked' : ''}> Destacado</label>
       <label class="toggle"><input type="checkbox" id="f-pin" ${m.pinned ? 'checked' : ''}> Fijado en el chat</label></div>
+    ${guardField}
     <p class="muted small">Creado el ${new Date(m.createdAt).toLocaleString('es')} · Los cambios se guardan al cerrar.</p>
     ${m.replyTo ? `<div class="field"><span>En respuesta a</span>${quoteHtml(m.replyTo)}</div>` : ''}`;
 
@@ -115,6 +122,14 @@ export function messageSheet(id) {
     const v = collect();
     if (JSON.stringify(v) === initial) return;
     if (!v.text && !st.atts.length) { toast('No se guardó: el mensaje no puede quedar vacío'); return; }
+    if (m.editLocked) {
+      // Bloqueado: solo lo tuyo (destacado, categoría) y fijarlo.
+      Object.assign(m, { categoryId: v.cat, starred: v.star, pinned: v.pin });
+      await put('messages', m);
+      refreshAll();
+      toast('Cambios guardados');
+      return;
+    }
     const prevChat = m.chatId, prevRemind = m.remindAt || null, wasDone = !!m.done;
     const repeat = repeatFromKey(v.repeat);
     Object.assign(m, {
@@ -155,13 +170,33 @@ export function messageSheet(id) {
     onClose: () => { if (mode === 'save' && sh) commit().catch((err) => toast(`No se pudo guardar: ${err.message}`)); },
     onMount: (el) => {
       sh = el;
-      if (!editable) {
-        sh.querySelectorAll('#f-text, #f-due, #f-repeat, #f-remind, #f-chat, #f-pin, [data-s=kind], [data-s=remind], [data-s=att-del]').forEach((x) => { x.disabled = true; });
-        sh.querySelector('.fmt-bar')?.remove();
-      }
+      const CONTENT = '#f-text, #f-due, #f-repeat, #f-remind, #f-chat, #f-done, #f-tags, [data-s=kind], [data-s=remind], [data-s=att-del], .fmt-bar button';
+      const applyLock = () => {
+        const locked = !!m.editLocked;
+        sh.querySelectorAll(CONTENT).forEach((x) => { x.disabled = locked || (!editable && !x.matches('#f-done, #f-tags')); });
+        if (!editable) sh.querySelectorAll('#f-pin').forEach((x) => { x.disabled = true; });
+        $('#f-locked-note', sh).hidden = !locked;
+        const del = sh.querySelector('[data-s=del]');
+        if (del) { del.classList.toggle('dim', !!m.protected); del.title = m.protected ? 'Protegido: quítale la protección para eliminarlo' : ''; }
+      };
+      if (!editable) sh.querySelector('.fmt-bar')?.remove();
+      applyLock();
       initial = JSON.stringify(collect());
       sh.addEventListener('input', (e) => { if (e.target.matches('#f-due, #f-remind')) updateCal(); });
-      sh.addEventListener('change', (e) => { if (e.target.matches('#f-due, #f-remind')) updateCal(); });
+      sh.addEventListener('change', async (e) => {
+        if (e.target.matches('#f-due, #f-remind')) updateCal();
+        if (e.target.matches('#f-lock, #f-protect')) {
+          const key = e.target.id === 'f-lock' ? 'editLocked' : 'protected';
+          // Al bloquear, primero se guarda lo que ya habías cambiado.
+          if (key === 'editLocked' && e.target.checked) { await commit(); initial = JSON.stringify(collect()); }
+          m[key] = e.target.checked;
+          await put('messages', m);
+          refreshAll();
+          applyLock();
+          if (key === 'editLocked' && !e.target.checked) initial = JSON.stringify(collect());
+          toast(key === 'editLocked' ? (m.editLocked ? '🔒 Mensaje bloqueado' : '🔓 Mensaje desbloqueado') : (m.protected ? '🛡️ Protegido: no se puede eliminar' : 'Protección quitada'));
+        }
+      });
       sh.addEventListener('click', async (e) => {
         const b = e.target.closest('[data-s]');
         if (!b) return;
@@ -211,6 +246,7 @@ export function messageSheet(id) {
           return;
         }
         if (s === 'del') {
+          if (m.protected) { toast('🛡️ Mensaje protegido: quítale la protección para eliminarlo'); return; }
           mode = 'deleted';
           closeSheet();
           await deleteMessages([m.id]);

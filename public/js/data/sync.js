@@ -6,6 +6,7 @@
  * - Si dos dispositivos editan lo mismo, gana la edición más reciente (updatedAt).
  */
 import { S, settings } from '../state.js';
+import { mergeShop, sameShop } from '../shopcore.js';
 import { idb, DATA_STORES } from './idb.js';
 import { uploadPending } from '../files.js';
 
@@ -87,6 +88,19 @@ export function dropLocal(store, id) {
 
 /* ---------- Aplicar cambios que vienen del servidor ---------- */
 async function applyRemote(store, doc) {
+  // Lista de compras: lo de los demás se fusiona producto a producto, aunque lo local sea más nuevo.
+  const mine = store === 'messages' && !doc.deleted && doc.shop ? findLocal(store, doc.id) : null;
+  if (mine?.shop) {
+    const merged = mergeShop(mine.shop, doc.shop);
+    doc = { ...doc, shop: merged };
+    const pend = await idb.get('outbox', `${store}:${doc.id}`);
+    if ((pend && pend.updatedAt > doc.updatedAt) || (mine.updatedAt || 0) >= doc.updatedAt) {
+      if (sameShop(merged, mine.shop)) return false;
+      mine.shop = merged;
+      await idb.put(store, mine);
+      return true;
+    }
+  }
   const pending = await idb.get('outbox', `${store}:${doc.id}`);
   if (pending && pending.updatedAt > doc.updatedAt) return false; // lo local es más nuevo
   const local = findLocal(store, doc.id);

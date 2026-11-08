@@ -157,6 +157,8 @@ export function chatSheet(id) {
 }
 
 function deleteChatSheet(c) {
+  const prot = msgsOf(c.id).filter((m) => m.protected).length;
+  if (prot) { toast(`🛡️ Este chat tiene ${prot} mensaje${prot > 1 ? 's' : ''} protegido${prot > 1 ? 's' : ''}. Quítales la protección (o muévelos) para eliminarlo.`); return; }
   const n = msgsOf(c.id).length;
   const body = `<p>¿Eliminar <b>${esc(`${c.emoji} ${c.name}`)}</b>?</p>${n ? `<p class="muted">Tiene ${n} mensaje${n > 1 ? 's' : ''}. Puedes moverlos a General, o se irán a la Papelera (30 días para recuperarlos).</p>` : ''}`;
   sheet('Eliminar chat', body, {
