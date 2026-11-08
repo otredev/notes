@@ -57,6 +57,7 @@ async function init() {
   // Cambios desde otro dispositivo: se redibuja (salvo con una hoja abierta, para no molestar).
   onRemote(() => { if (!isSheetOpen()) refreshAll(); });
   bindEvents();
+  blockZoom();
   initBackNav();
 
   // Dispositivo nuevo: primero se traen los datos de MongoDB y solo si no hay nada se crean los ejemplos.
@@ -161,3 +162,11 @@ async function openFromNotification(id) {
 }
 
 init();
+
+/** Móvil: impide ampliar la vista con dos dedos (iOS ignora user-scalable=no en Safari). */
+function blockZoom() {
+  const stop = (e) => e.preventDefault();
+  document.addEventListener('gesturestart', stop, { passive: false });
+  document.addEventListener('gesturechange', stop, { passive: false });
+  document.addEventListener('touchmove', (e) => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+}

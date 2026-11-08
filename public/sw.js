@@ -1,5 +1,5 @@
 /* Service worker: la app abre sin conexión (la API /api nunca se guarda en caché) y muestra las notificaciones push. */
-const CACHE = 'chatnote-v19';
+const CACHE = 'chatnote-v20';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './css/base.css', './css/layout.css', './css/pane.css', './css/chat.css', './css/sheets.css', './css/responsive.css', './css/features.css', './css/theme.css',
