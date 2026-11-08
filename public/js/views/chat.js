@@ -192,7 +192,8 @@ export function renderChatHead() {
     h.innerHTML = `<button class="icon-btn" data-act="sel-clear" aria-label="Cancelar selección">${ic('close')}</button>
       <div class="ch-title"><b>${S.selection.size}</b></div>
       <div class="head-actions">
-        ${S.selection.size === 1 ? `<button class="icon-btn" data-act="sel-reply" title="Responder">${ic('reply')}</button>` : ''}
+        ${S.selection.size === 1 ? `<button class="icon-btn" data-act="sel-reply" title="Responder">${ic('reply')}</button>
+        <button class="icon-btn" data-act="sel-edit" title="Editar">${ic('edit')}</button>` : ''}
         <button class="icon-btn" data-act="sel-kind" data-v="task" title="Convertir en tarea">${ic('tasks')}</button>
         <button class="icon-btn" data-act="sel-kind" data-v="note" title="Convertir en nota">${ic('note')}</button>
         <button class="icon-btn" data-act="sel-cat" title="Asignar categoría">${ic('org')}</button>

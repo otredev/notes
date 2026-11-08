@@ -26,7 +26,7 @@ export async function updatePushBox() {
     : state === 'off' ? '<button class="btn primary" data-act="push-on">Activar notificaciones</button>' : '';
   box.innerHTML = `<div class="sync-state ${cls}">${ic(icon)}<span class="grow">${esc(text)}</span></div>
     ${buttons ? `<div class="btn-row">${buttons}</div>` : ''}
-    <p class="muted small" style="margin:10px 0 0">Para poner un recordatorio toca un mensaje → <b>Recordatorio</b>, o escribe <code>!mañana 9:30</code> o <code>!18:00</code> al enviarlo.</p>`;
+    <p class="muted small" style="margin:10px 0 0">Para poner un recordatorio mantén pulsado un mensaje → <b>✏️ Editar</b> → <b>Recordatorio</b>, o escribe <code>!mañana 9:30</code> o <code>!18:00</code> al enviarlo.</p>`;
 }
 
 const SYNC_LABELS = {

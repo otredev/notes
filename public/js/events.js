@@ -21,8 +21,6 @@ import { personDot, saveProfile, createDeviceLink, revokeSession, logout, invite
 import { restartLive } from './live.js';
 import { norm } from './utils.js';
 
-let msgClickTimer = null;
-document.addEventListener('dblclick', () => clearTimeout(msgClickTimer));
 
 /** ¿Hay texto seleccionado dentro de este elemento? */
 function textSelectedIn(el) {
@@ -116,6 +114,8 @@ const ACTIONS = {
   reply: (el) => startReply(el.dataset.id),
   'reply-cancel': () => { cancelReply(); $('#composer-input')?.focus(); },
   'sel-reply': () => startReply([...S.selection][0]),
+  // Editar: solo desde la selección (mantén pulsado o clic derecho en el mensaje → ✏️).
+  'sel-edit': () => { const id = [...S.selection][0]; clearSel(); if (id) messageSheet(id); },
   toggle: (el) => toggleDone(el.dataset.id),
   attach: () => $('#attach-input')?.click(),
   'attach-remove': (el) => removePending(el.dataset.id),
@@ -128,14 +128,9 @@ const ACTIONS = {
     if (att) toggleAudio(att).catch((err) => toast(err.message || 'No se pudo reproducir'));
   },
   'cl-toggle': (el) => toggleItem(el.dataset.id, el.dataset.i),
-  // Si acabas de seleccionar texto del mensaje (para copiarlo), no se abre la ventana de edición.
-  // Con ratón se espera un instante: si es un doble clic para seleccionar una palabra, no se abre.
-  msg: (el) => {
-    if (textSelectedIn(el)) return;
-    if (!matchMedia('(pointer: fine)').matches) { messageSheet(el.dataset.id); return; }
-    clearTimeout(msgClickTimer);
-    msgClickTimer = setTimeout(() => { if (!textSelectedIn(el)) messageSheet(el.dataset.id); }, 260);
-  },
+  // Tocar un mensaje no hace nada (se puede seleccionar su texto para copiar).
+  // Para editarlo: mantenerlo pulsado (o clic derecho) y luego ✏️ Editar.
+  msg: () => {},
   send: () => send(),
   triage: () => triageSheet(),
 
