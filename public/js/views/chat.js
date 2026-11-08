@@ -78,6 +78,18 @@ export function buildMain() {
         </div>
         <button class="send-btn" id="send-btn" data-act="send" title="Enviar" aria-label="Enviar">${ic('send')}</button>
       </div>
+      <div class="line-bar" id="line-bar" role="toolbar" aria-label="Formato">
+        <button type="button" data-act="fmt" data-v="h1" data-target="composer-input" title="Título">H1</button>
+        <button type="button" data-act="fmt" data-v="h3" data-target="composer-input" title="Subtítulo">H3</button>
+        <button type="button" data-act="fmt" data-v="ul" data-target="composer-input" title="Lista">•</button>
+        <button type="button" data-act="fmt" data-v="chk" data-target="composer-input" title="Casilla">☐</button>
+        <span class="sel-only lb-sep" aria-hidden="true"></span>
+        <button type="button" class="sel-only" data-act="fmt" data-v="b" data-target="composer-input" title="Negrita"><b>B</b></button>
+        <button type="button" class="sel-only" data-act="fmt" data-v="i" data-target="composer-input" title="Cursiva"><i>I</i></button>
+        <button type="button" class="sel-only" data-act="fmt" data-v="u" data-target="composer-input" title="Subrayado"><u>U</u></button>
+        <button type="button" class="sel-only" data-act="fmt" data-v="s" data-target="composer-input" title="Tachado"><s>S</s></button>
+        <button type="button" class="sel-only" data-act="fmt" data-v="code" data-target="composer-input" title="Código">&lt;&gt;</button>
+      </div>
       <div class="rec-bar" id="rec-bar" hidden>
         <button class="icon-btn" data-act="rec-cancel" title="Descartar" aria-label="Descartar">${ic('trash')}</button>
         <span class="rec-dot"></span><span class="rec-time" id="rec-time">0:00</span><span class="grow muted small">Grabando nota de voz…</span>

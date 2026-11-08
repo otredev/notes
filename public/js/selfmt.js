@@ -45,21 +45,19 @@ function hide() { if (bar) bar.hidden = true; target = null; }
 
 function update() {
   const ta = document.activeElement;
+  // Táctil: no hay barra flotante (el menú del sistema la taparía). La barra de debajo del cuadro
+  // muestra además negrita, cursiva… mientras hay texto seleccionado.
+  if (matchMedia('(pointer: coarse)').matches) {
+    hide();
+    const lb = document.getElementById('line-bar');
+    if (lb) lb.classList.toggle('has-sel', ta?.id === 'composer-input' && ta.selectionStart !== ta.selectionEnd && !!ta.value.slice(ta.selectionStart, ta.selectionEnd).trim());
+    return;
+  }
   if (!ta?.matches?.(TARGETS) || ta.disabled || ta.readOnly || ta.selectionStart === ta.selectionEnd || !ta.value.slice(ta.selectionStart, ta.selectionEnd).trim()) { hide(); return; }
   target = ta;
   const b = ensureBar();
   b.hidden = false;
-  // Táctil: el menú del sistema (Cortar, Copiar, Pegar…) sale encima de la selección y la web no puede
-  // añadirle botones. Para que no se tapen, la barra va DEBAJO del cuadro, dentro de la página.
-  if (matchMedia('(pointer: coarse)').matches) {
-    const anchor = ta.id === 'composer-input' ? document.getElementById('composer') : ta;
-    if (anchor && b.previousElementSibling !== anchor) anchor.after(b);
-    b.classList.add('docked');
-    b.style.top = b.style.left = '';
-    return;
-  }
   if (b.parentElement !== document.body) document.body.appendChild(b);
-  b.classList.remove('docked');
   // Encima del cuadro (o debajo si no cabe arriba), dentro de la pantalla.
   const r = ta.getBoundingClientRect(), vv = window.visualViewport;
   const top0 = vv ? vv.offsetTop : 0, w = b.offsetWidth, h = b.offsetHeight;
@@ -71,6 +69,24 @@ function update() {
 }
 
 export function bindSelectionFormat() {
+  // Barra fija de líneas (móvil): los botones no le quitan el foco al cuadro (el teclado no se cierra).
+  // Enviar tampoco lo quita: el teclado sigue abierto para el siguiente mensaje (como en WhatsApp).
+  for (const ev of ['pointerdown', 'mousedown']) {
+    document.addEventListener(ev, (e) => { if (e.target.closest?.('.line-bar button, #send-btn[data-act=send]')) e.preventDefault(); });
+  }
+  // La barra de debajo del cuadro se ve mientras escribes. Al salir se oculta con un pequeño retraso:
+  // si desapareciera al instante, el cuadro bajaría y el toque (enviar, clip…) caería en otro sitio.
+  let hideTimer = null;
+  document.addEventListener('focusin', (e) => {
+    if (e.target.id !== 'composer-input') return;
+    clearTimeout(hideTimer);
+    document.getElementById('composer-area')?.classList.add('typing');
+  });
+  document.addEventListener('focusout', (e) => {
+    if (e.target.id !== 'composer-input') return;
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => { if (document.activeElement?.id !== 'composer-input') document.getElementById('composer-area')?.classList.remove('typing'); }, 350);
+  });
   const later = () => requestAnimationFrame(update);
   document.addEventListener('selectionchange', later);
   // (no todos los navegadores avisan de la selección dentro de un textarea con selectionchange)

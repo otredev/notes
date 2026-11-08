@@ -209,7 +209,12 @@ const ACTIONS = {
   'sheet-close': () => closeSheet(),
 
   /* ---------- Formato, encuestas y plantillas ---------- */
-  fmt: (el) => applyFormat(document.getElementById(el.dataset.target), el.dataset.v),
+  fmt: (el) => {
+    const ta = document.getElementById(el.dataset.target);
+    // Sin foco (barra fija del móvil): se aplica a la línea donde termina el texto.
+    if (ta && document.activeElement !== ta) ta.setSelectionRange(ta.value.length, ta.value.length);
+    applyFormat(ta, el.dataset.v);
+  },
   'embed-full': (el) => toggleEmbedFull(el.closest('.html-embed')),
   'embed-code': (el) => {
     const src = el.closest('.html-embed')?.querySelector('.he-src');

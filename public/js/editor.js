@@ -1,7 +1,8 @@
 /* Formato: aplica negrita, títulos, listas, código… al cuadro de texto (lo usan la barra de selección y los atajos). */
 
 const INLINE = { b: '*', i: '_', u: '__', s: '~', code: '`' };
-const LINE = { h1: '# ', h3: '### ', ul: '- ' };
+const LINE = { h1: '# ', h3: '### ', ul: '- ', chk: '[ ] ' };
+const LINE_MARK = /^\s*(?:[-•]\s+|\[[ xX]?\]\s?)/; // viñeta o casilla al principio de la línea
 const HEADINGS = /^(#{1,3})\s+/;
 
 /** Reemplaza un trozo del textarea y avisa (para el autoajuste de alto y el botón de enviar). */
@@ -39,11 +40,13 @@ function prefixLines(ta, prefix) {
   let end = v.indexOf('\n', ta.selectionEnd);
   if (end < 0) end = v.length;
   const lines = v.slice(start, end).split('\n');
-  const isHeading = prefix.startsWith('#');
-  const all = lines.every((l) => l.startsWith(prefix));
+  const isHeading = prefix.startsWith('#'), isCheck = prefix === LINE.chk;
+  // Si todas ya lo tienen, se quita (una casilla marcada [x] también cuenta como casilla).
+  const has = (l) => (isCheck ? /^\s*\[[ xX]?\]\s?/.test(l) : l.startsWith(prefix));
+  const all = lines.every(has);
   const out = lines.map((l) => {
-    if (all) return l.slice(prefix.length);
-    const clean = isHeading ? l.replace(HEADINGS, '') : l.replace(/^\s*[-•]\s+/, '');
+    if (all) return isCheck ? l.replace(/^\s*\[[ xX]?\]\s?/, '') : l.slice(prefix.length);
+    const clean = isHeading ? l.replace(HEADINGS, '') : l.replace(LINE_MARK, '');
     return prefix + clean;
   }).join('\n');
   replace(ta, start, end, out, start + out.length, start + out.length);

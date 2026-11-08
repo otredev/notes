@@ -342,8 +342,21 @@ input, textarea, select, [contenteditable="true"],
 pre.code code { counter-reset: ln; }
 pre.code .ln { counter-increment: ln; }
 pre.code .ln::before { content: counter(ln); display: inline-block; width: 2.2em; margin-right: 12px; text-align: right; color: var(--muted); opacity: .7; user-select: none; -webkit-user-select: none; }
-/* Táctil: barra de formato debajo del cuadro (el menú del sistema va encima de la selección). */
-.sel-fmt.docked {
-  position: static; justify-content: space-around; margin: 0 10px 6px; border-radius: 10px; box-shadow: none; animation: none;
+/* Móvil: barra fija con los formatos de línea (no necesitan seleccionar texto). */
+.line-bar { display: none; }
+@media (pointer: coarse) {
+  /* Debajo del cuadro y solo mientras escribes en él. */
+  .composer-area.typing:not(:has(#composer[hidden])) .line-bar { display: flex; gap: 6px; padding: 0 12px max(8px, env(safe-area-inset-bottom, 0px)); }
+  .composer-area.typing .composer { padding-bottom: 6px; }
+  .line-bar button { min-width: 44px; height: 30px; padding: 0 10px; border-radius: 15px; background: var(--chip, var(--soft)); color: var(--muted); font-size: 13px; font-weight: 600; }
+  .line-bar button:active { background: var(--chip-on); color: var(--chip-on-text); }
+  /* Con texto seleccionado aparecen negrita, cursiva, subrayado, tachado y código (en la misma fila). */
+  .line-bar { overflow-x: auto; scrollbar-width: none; }
+  .line-bar::-webkit-scrollbar { display: none; }
+  .line-bar button { flex: none; }
+  .line-bar .sel-only { display: none; color: var(--text); }
+  .line-bar.has-sel .sel-only { display: inline-grid; place-items: center; }
+  .line-bar .lb-sep { width: 1px; height: 20px; align-self: center; background: var(--line); margin: 0 2px; flex: none; }
+  .line-bar.has-sel .lb-sep { display: block; }
+  .line-bar.has-sel button { min-width: 38px; padding: 0 8px; }
 }
-.sel-fmt.docked button { flex: 1; height: 36px; }
